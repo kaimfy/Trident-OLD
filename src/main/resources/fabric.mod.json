@@ -12,15 +12,15 @@
 		"sources": "https://github.com/FabricMC/fabric-example-mod"
 	},
 	"license": "MIT",
-	"icon": "assets/trident/icon.png",
+	"icon": "assets/trident/icon64blue.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"com.trident.Trident"
+			"com.trident.core.Trident"
 		],
 		"client":[
-			"com.trident.DiscordIntegration",
-			"com.trident.TridentLoader"
+			"com.trident.network.DiscordIntegration",
+			"com.trident.core.TridentLoader"
 		]
 	},
 	"mixins": [
