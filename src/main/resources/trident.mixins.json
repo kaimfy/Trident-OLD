@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "com.trident.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"TitleCanc",
+		"TitleScreenMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
