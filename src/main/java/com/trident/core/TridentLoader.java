@@ -1,5 +1,6 @@
 package com.trident.core;
 
+import com.bazaarmod.BazaarModClient;
 import com.trident.config.MacroConfig;
 import com.trident.events.AutoJoinHypixel;
 import com.trident.events.CameraManager;
@@ -16,13 +17,12 @@ import com.trident.pathing.RouteCommands;
 import com.trident.tracking.MacroTracker;
 import com.trident.tracking.SeaLumiesTracker;
 
-
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.util.math.MatrixStack;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-
+import net.fabricmc.loader.api.FabricLoader;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.gui.DrawContext;
@@ -32,7 +32,6 @@ import org.lwjgl.opengl.GL11;
 import net.minecraft.client.gui.hud.InGameHud;
 
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-
 
 import net.minecraft.client.MinecraftClient;
 
@@ -52,7 +51,6 @@ import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWImage;
-import org.lwjgl.opengl.GL11;
 import org.lwjgl.system.MemoryStack;
 
 import javax.imageio.ImageIO;
@@ -82,18 +80,18 @@ public class TridentLoader implements ClientModInitializer {
             2, 3, 0   // Second triangle
     };
 
-
     public static final Set<String> TARGET_PLAYERS = new HashSet<>(Arrays.asList(
             "yuvet",
             "FunDaOne"
     ));
+
     private static boolean joinedServer = false;
     private long nullScoreboardStartTime = -1;
     private long lastCommandTime = 0;
     private static final long COMMAND_COOLDOWN = 10 * 1000;
     private final AutoFishModule autoFish = new AutoFishModule();
     private static int framecount = 0;
-    public static int picklecont= 0;
+    public static int picklecont = 0;
     private final KeyHandler keyHandler = new KeyHandler();
     public List<BlockPos> blockList = new ArrayList<>();
     private int currentTargetIndex = 0;
@@ -104,7 +102,7 @@ public class TridentLoader implements ClientModInitializer {
     private int commandStage = 0;
     private static final long COOLDOWN_DURATION = 100;
     private static TridentLoader instance;
-    public boolean shouldLoop = true; // Configurable looping option
+    public boolean shouldLoop = true;
     private int tickCounter = 0;
     Vec3d lastPlayerPos = new Vec3d(0, 0, 0);
     private static boolean ESPToggle = false;
@@ -112,46 +110,37 @@ public class TridentLoader implements ClientModInitializer {
     private boolean droppingInProgress = false;
     private int dropIndex = 0;
     private static String theme = Trident.getThemecolor();
-    private float r,g,b;
+    private float r, g, b;
+
+    // Bazaar relist integration
+    private static boolean bazaarLoaded = false;
+    private static boolean onIsland = false;       // true only while parked on /is between macro runs
+    private int relistCooldownTicks = 0;
+    private boolean relistInProgress = false;
+    private static final int RELIST_INTERVAL_TICKS = 20 * 10; // 10 seconds — change to 20*60*15 for 15 min
+
     @Override
     public void onInitializeClient() {
-        if(!Trident.access){
+        bazaarLoaded = FabricLoader.getInstance().isModLoaded("bazaarmod");
+
+        if (!Trident.access) {
             ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
                 if (!joinedServer) {
                     joinedServer = true;
-
-                    // Example: print current server IP
                     String serverAddress = MinecraftClient.getInstance().getCurrentServerEntry() != null
                             ? MinecraftClient.getInstance().getCurrentServerEntry().address
                             : "Singleplayer";
-
-                    sendPlayerMessage(client,"§3[§bTrident§3] §7Couldnt Verify Your Account, Please Check Your Authentication.");
+                    sendPlayerMessage(client, "§3[§bTrident§3] §7Couldnt Verify Your Account, Please Check Your Authentication.");
                 }
             });
             return;
         }
 
-        switch(theme){
-            case "purple":
-                r=0.7f;
-                g=0.2f;
-                b=1f;
-                break;
-            case "red":
-                r=1f;
-                g=0.2f;
-                b=0.2f;
-                break;
-            case "green":
-                r=0.2f;
-                g=1f;
-                b=0.2f;
-                break;
-            case "blue":
-                r=0f;
-                g=0.5f;
-                b=1f;
-                break;
+        switch (theme) {
+            case "purple": r = 0.7f; g = 0.2f; b = 1f;   break;
+            case "red":    r = 1f;   g = 0.2f; b = 0.2f; break;
+            case "green":  r = 0.2f; g = 1f;   b = 0.2f; break;
+            case "blue":   r = 0f;   g = 0.5f; b = 1f;   break;
         }
 
         AutoJoinHypixel.init();
@@ -173,53 +162,59 @@ public class TridentLoader implements ClientModInitializer {
             MacroConfig.save();
         }));
 
-
-
         HudRenderCallback.EVENT.register(SeaLumiesHUD::render);
-
-
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             if (!joinedServer) {
                 joinedServer = true;
-
-                // Example: print current server IP
                 String serverAddress = MinecraftClient.getInstance().getCurrentServerEntry() != null
                         ? MinecraftClient.getInstance().getCurrentServerEntry().address
                         : "Singleplayer";
-
-                sendPlayerMessage(client,"§3[§bTrident§3] §7Account Verified. Have fun!");
-
-                // Put your whitelist check or popup logic here
+                sendPlayerMessage(client, "§3[§bTrident§3] §7Account Verified. Have fun!");
             }
         });
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
 
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
 
             UpdateFrame();
             SeaLumiesTracker.tick(client.player);
-            if(KeyHandler.shardkill.wasPressed()){
-                if(MobActionModule.isOn){
-                    sendPlayerMessage(client,"§3[§bTrident§3] §7Shard Kill: §cFalse");
+
+            // ── Bazaar relist integration ─────────────────────────────────────
+            // Timer ticks while the macro is active OR while we're in the command
+            // phase (commandsSent = true, parked on island). This ensures the
+            // relist completion is always detected even after stopMacro() is called.
+            if (bazaarLoaded && (macroActive || commandsSent)) {
+                if (relistInProgress) {
+                    if (!BazaarModClient.MANUAL_RELIST.isRunning()) {
+                        relistInProgress = false;
+                        relistCooldownTicks = RELIST_INTERVAL_TICKS; // restart timer after relist finishes
+                        sendPlayerMessage(client, "§3[§bTrident§3] §7Relist finished.");
+                    }
+                } else if (relistCooldownTicks > 0) {
+                    relistCooldownTicks--; // counts down whether pathing or on island
+                }
+                // When cooldown hits 0 it stays at 0 — relist fires only when onIsland (see stage 1 below)
+            }
+            // ─────────────────────────────────────────────────────────────────
+
+            if (KeyHandler.shardkill.wasPressed()) {
+                if (MobActionModule.isOn) {
+                    sendPlayerMessage(client, "§3[§bTrident§3] §7Shard Kill: §cFalse");
                     MobActionModule.isOn = false;
-                }else{
-                    sendPlayerMessage(client,"§3[§bTrident§3] §7Shard Kill: §aTrue");
+                } else {
+                    sendPlayerMessage(client, "§3[§bTrident§3] §7Shard Kill: §aTrue");
                     MobActionModule.isOn = true;
                 }
             }
-            if(MobActionModule.isOn){
+            if (MobActionModule.isOn) {
                 MobActionModule.onTick();
             }
 
-
-
             autoFish.tick();
 
-            if(tickCounter%10==0){
+            if (tickCounter % 10 == 0) {
                 WorldChecker.checkWorld(client);
             }
-
-
 
             if ((WorldChecker.LobbyCheck == 1 || WorldChecker.LobbyCheck == 2) && macrotoggle) {
                 CameraManager.stopMacro();
@@ -240,11 +235,8 @@ public class TridentLoader implements ClientModInitializer {
                 }
             }
 
-
-
-            if(keyHandler.custommenu.wasPressed()){
+            if (keyHandler.custommenu.wasPressed()) {
                 MinecraftClient.getInstance().setScreen(new CustomGUIScreen());
-
             }
             if (keyHandler.menu.wasPressed()) {
                 client.execute(() -> client.mouse.unlockCursor());
@@ -254,7 +246,6 @@ public class TridentLoader implements ClientModInitializer {
             tickCounter++;
             if (tickCounter % 3 == 0) {
                 Vec3d currentPos = new Vec3d(client.player.getX(), client.player.getY(), client.player.getZ());
-
                 if (lastPlayerPos != null && currentPos.squaredDistanceTo(lastPlayerPos) < 0.05) {
                     CameraManager.setmoving(false);
                 } else {
@@ -262,6 +253,7 @@ public class TridentLoader implements ClientModInitializer {
                     lastPlayerPos = currentPos;
                 }
             }
+
             if (KeyHandler.savecoord.wasPressed()) {
                 BlockPos pos = client.player.getBlockPos();
                 blockList.add(pos);
@@ -269,12 +261,14 @@ public class TridentLoader implements ClientModInitializer {
                 for (BlockPos targetPosition : blockList) {
                     System.out.print(targetPosition);
                 }
-                sendPlayerMessage(client, "§3[§bTrident§3] §7Saved position #"+ blockList.size() +" at: "  + pos.toShortString());
+                sendPlayerMessage(client, "§3[§bTrident§3] §7Saved position #" + blockList.size() + " at: " + pos.toShortString());
                 PathVisualizer.spawnPathMarkers(blockList);
             }
-            if(keyHandler.fish.wasPressed()) {
+
+            if (keyHandler.fish.wasPressed()) {
                 autoFish.toggle();
             }
+
             if (KeyHandler.startmacro.wasPressed()) {
                 if (macroActive) {
                     macrotoggle = false;
@@ -294,17 +288,16 @@ public class TridentLoader implements ClientModInitializer {
             }
 
             if (KeyHandler.clearall.wasPressed()) {
-
                 stopMacro(client);
                 blockList.clear();
                 CameraManager.clearsave();
                 PathVisualizer.spawnPathMarkers(blockList);
                 sendPlayerMessage(client, "§3[§bTrident§3] §7Cleared all positions");
             }
+
             if (client.currentScreen != null && client.currentScreen.shouldPause()) {
                 stopMacro(client);
             }
-
 
             if (macrotoggle && !CameraManager.isActive() && WorldChecker.LobbyCheck == 1) {
                 commandsSent = true;
@@ -323,37 +316,57 @@ public class TridentLoader implements ClientModInitializer {
                 }
             }
 
-
-
             if (commandsSent && WorldChecker.LobbyCheck == 0) {
                 long remaining = commandCooldownEnd - System.currentTimeMillis();
 
                 if (remaining <= 0) {
                     if (countSeaLumies(client.player) < 500 && DoneDropping) {
                         if (commandStage == 1) {
-                            sendServerCommand(client, "warp murk");
-                            sendPlayerMessage(client, "§3[§bTrident§3] §7Sent: /warp murk");
-                            commandStage = 2;
-                            commandCooldownEnd = System.currentTimeMillis() + COOLDOWN_DURATION * 25;
+                            // Mark we're on the island
+                            if (!onIsland) {
+                                onIsland = true;
+                                sendPlayerMessage(client, "§3[§bTrident§3] §7On island.");
+                                // If cooldown already at 0, trigger relist now before leaving
+                                if (bazaarLoaded && relistCooldownTicks == 0 && !relistInProgress) {
+                                    relistInProgress = true;
+                                    BazaarModClient.MANUAL_RELIST.trigger(client);
+                                    sendPlayerMessage(client, "§3[§bTrident§3] §7Starting bazaar relist...");
+                                }
+                            }
+
+                            // If a relist is in progress, wait for it to finish before leaving
+                            if (bazaarLoaded && relistInProgress) {
+                                // still waiting — stay in stage 1
+                            } else {
+                                // No relist needed right now — leave island
+                                onIsland = false;
+                                sendServerCommand(client, "warp murk");
+                                sendPlayerMessage(client, "§3[§bTrident§3] §7Sent: /warp murk");
+                                commandStage = 2;
+                                commandCooldownEnd = System.currentTimeMillis() + COOLDOWN_DURATION * 25;
+                            }
+
                         } else if (commandStage == 2 && shouldLoop) {
-                            // Reset everything to start the macro again
                             commandsSent = false;
                             commandStage = 0;
                             startMacro(client);
                             sendPlayerMessage(client, "§3[§bTrident§3] §7Looping macro...");
                         }
-                    }else{
-                        DoneDropping=false;
+                    } else {
+                        // Only drop if bazaarmod is NOT loaded
+                        if (!bazaarLoaded) {
+                            DoneDropping = false;
+                        }
                     }
-                    if(!DoneDropping ){
+                    if (!DoneDropping && !bazaarLoaded) {
                         dropSeaLumies(client);
                     }
                 }
             }
 
-
             CameraManager.tick();
         });
+
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
             CameraManager.updateViewSmooth(1.0F);
 
@@ -363,7 +376,6 @@ public class TridentLoader implements ClientModInitializer {
             Camera camera = client.gameRenderer.getCamera();
             Vec3d cameraPos = camera.getCameraPos();
 
-            // Create our own stack and apply camera transform
             MatrixStack matrices = new MatrixStack();
             matrices.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
 
@@ -371,52 +383,44 @@ public class TridentLoader implements ClientModInitializer {
             VertexConsumer buffer = immediate.getBuffer(RenderLayers.LINES);
 
             for (BlockPos pos : blockList) {
-                Box box = new Box(pos); // NO offset
+                Box box = new Box(pos);
                 drawBoxEdges(matrices, buffer, box, r, g, b, 1f);
             }
 
             for (int i = 0; i < blockList.size() - 1; i++) {
-                Vec3d start = Vec3d.ofCenter(blockList.get(i)); // NO subtract
-                Vec3d end   = Vec3d.ofCenter(blockList.get(i + 1));
+                Vec3d start = Vec3d.ofCenter(blockList.get(i));
+                Vec3d end = Vec3d.ofCenter(blockList.get(i + 1));
                 drawLine(matrices, buffer, start, end, r, g, b, 1f);
             }
 
-
             immediate.draw();
-
         });
-
     }
-
-
-
 
     public void ApplicaConfigurazioni() {
         MacroConfig.load();
         MacroConfig config = MacroConfig.get();
-
         ESPToggle(config.espEnabled);
         Nuker.setToggle(config.nukerToggle);
         CameraManager.editspeed(config.pathRotationSpeed);
         CameraManager.setpickles(config.pathPickleSwapDetection);
         this.shouldLoop = config.pathLoopActive;
     }
+
     private static void checkPlayersOnce(MinecraftClient client) {
         for (PlayerEntity player : client.world.getPlayers()) {
-
             String playerName = player.getName().getString();
             if (TARGET_PLAYERS.contains(playerName)) {
                 sendPlayerMessage(client, "§3[§bTrident§3] §7FOUND OPP RUN BOYYY");
                 CameraManager.stopMacro();
-                // Play sound immediately
-                return; // Exit immediately
+                return;
             }
         }
     }
+
     public static int countSeaLumies(PlayerEntity player) {
         int count = 0;
         PlayerInventory inventory = player.getInventory();
-
         for (int slot = 0; slot < inventory.size(); slot++) {
             ItemStack stack = inventory.getStack(slot);
             if (stack.isOf(Items.PLAYER_HEAD) &&
@@ -426,16 +430,14 @@ public class TridentLoader implements ClientModInitializer {
         }
         return count;
     }
+
     private void dropSeaLumies(MinecraftClient client) {
         if (client.player == null || client.interactionManager == null) return;
-        if (droppingInProgress) return; // already running
-
+        if (droppingInProgress) return;
         droppingInProgress = true;
         dropIndex = 0;
-
         client.execute(() -> client.setScreen(new InventoryScreen(client.player)));
         sendPlayerMessage(client, "§3[§bTrident§3] §7Dropping Enchanted Sea Lumies...");
-
         scheduleNextDrop(client);
     }
 
@@ -445,16 +447,11 @@ public class TridentLoader implements ClientModInitializer {
             DoneDropping = true;
             return;
         }
-
         PlayerInventory inv = client.player.getInventory();
-
-        // Find next matching item
         while (dropIndex < inv.size()) {
             ItemStack stack = inv.getStack(dropIndex);
             dropIndex++;
-
             if (stack.isEmpty()) continue;
-
             String name = stack.getName().getString().replaceAll("§.", "").trim().toLowerCase(Locale.ROOT);
             if (name.contains("enchanted sea lumies")) {
                 int slotId = dropIndex - 1 < 9 ? 36 + (dropIndex - 1) : (dropIndex - 1);
@@ -465,29 +462,27 @@ public class TridentLoader implements ClientModInitializer {
                         SlotActionType.THROW,
                         client.player
                 );
-
-                // Wait ~300 ms before dropping next stack
                 CompletableFuture.delayedExecutor(300, TimeUnit.MILLISECONDS)
                         .execute(() -> scheduleNextDrop(client));
                 return;
             }
         }
-
-        // No more to drop
         client.execute(() -> client.setScreen(null));
         DoneDropping = true;
         droppingInProgress = false;
         sendPlayerMessage(client, "§3[§bTrident§3] §7Finished dropping all Enchanted Sea Lumies.");
     }
+
     private void startMacro(MinecraftClient client) {
         macroActive = true;
         commandsSent = false;
         currentTargetIndex = 0;
+        onIsland = false;             // Not on island — we're moving
+        relistInProgress = false;     // Clear any stale relist state
+        relistCooldownTicks = RELIST_INTERVAL_TICKS; // Start timer from macro begin
         SeaLumiesHUD.setManualStop(false);
 
-        // Reset tracker session at macro start
-        SeaLumiesTracker.tick(client.player); // initializes sessionCoins & previousInventoryCount
-
+        SeaLumiesTracker.tick(client.player);
         SeaLumiesHUD.lastPickleCount = countSeaLumies(client.player);
         CameraManager.clearAllTargets();
         for (BlockPos pos : blockList) {
@@ -499,10 +494,9 @@ public class TridentLoader implements ClientModInitializer {
 
     private void stopMacro(MinecraftClient client) {
         macroActive = false;
-
-        // Finalize tracker session
+        onIsland = false;          // No longer on island
+        relistInProgress = false;  // Clean up relist state
         SeaLumiesTracker.tick(client.player);
-
         SeaLumiesHUD.setManualStop(true);
         SeaLumiesHUD.resetTimer();
         CameraManager.clearAllTargets();
@@ -511,10 +505,30 @@ public class TridentLoader implements ClientModInitializer {
         client.options.sneakKey.setPressed(false);
         client.options.jumpKey.setPressed(false);
     }
+
     public void ESPToggle(boolean val) {
         ESPToggle = val;
     }
 
+    // ── Static getters for HUD ────────────────────────────────────────────────
+
+    public static int getRelistCooldownTicks() {
+        return instance != null ? instance.relistCooldownTicks : 0;
+    }
+
+    public static boolean isRelistInProgress() {
+        return instance != null && instance.relistInProgress;
+    }
+
+    public static boolean isBazaarLoaded() {
+        return bazaarLoaded;
+    }
+
+    public static boolean isOnIsland() {
+        return onIsland;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void sendServerCommand(MinecraftClient client, String command) {
         if (client.getNetworkHandler() != null && client.player != null) {
@@ -545,12 +559,14 @@ public class TridentLoader implements ClientModInitializer {
         blockList.addAll(list);
         PathVisualizer.spawnPathMarkers(blockList);
     }
-    public void editblockpoint(int point){
+
+    public void editblockpoint(int point) {
         assert MinecraftClient.getInstance().player != null;
         blockList.set(point, MinecraftClient.getInstance().player.getBlockPos());
         PathVisualizer.spawnPathMarkers(blockList);
     }
-    public void removeblockpoint(int point){
+
+    public void removeblockpoint(int point) {
         assert MinecraftClient.getInstance().player != null;
         blockList.remove(point);
         PathVisualizer.spawnPathMarkers(blockList);
@@ -580,50 +596,41 @@ public class TridentLoader implements ClientModInitializer {
     private void drawLine(MatrixStack matrices, VertexConsumer buffer,
                           Vec3d start, Vec3d end,
                           float r, float g, float b, float a) {
-
         MatrixStack.Entry entry = matrices.peek();
-
         buffer.vertex(entry.getPositionMatrix(), (float) start.x, (float) start.y, (float) start.z)
                 .color(r, g, b, a)
                 .normal(entry, 0f, 1f, 0f)
-                .lineWidth(2f); // no .next()
-
+                .lineWidth(2f);
         buffer.vertex(entry.getPositionMatrix(), (float) end.x, (float) end.y, (float) end.z)
                 .color(r, g, b, a)
                 .normal(entry, 0f, 1f, 0f)
-                .lineWidth(2f); // no .next()
+                .lineWidth(2f);
     }
-
-
-
 
     private void line(MatrixStack matrices, VertexConsumer buffer,
                       float x1, float y1, float z1,
                       float x2, float y2, float z2,
                       float r, float g, float b, float a) {
-
         MatrixStack.Entry entry = matrices.peek();
-
         buffer.vertex(entry.getPositionMatrix(), x1, y1, z1)
                 .color(r, g, b, a)
                 .normal(entry, 0f, 1f, 0f)
                 .lineWidth(2f);
-
         buffer.vertex(entry.getPositionMatrix(), x2, y2, z2)
                 .color(r, g, b, a)
                 .normal(entry, 0f, 1f, 0f)
                 .lineWidth(2f);
     }
 
-    private void UpdateFrame(){
-        if(framecount <59){
+    private void UpdateFrame() {
+        if (framecount < 59) {
             framecount++;
-        }else{
+        } else {
             framecount = 0;
         }
     }
-    public static String getFrame(){
-        return ""+framecount;
+
+    public static String getFrame() {
+        return "" + framecount;
     }
 }
-
