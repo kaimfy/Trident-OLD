@@ -321,15 +321,16 @@ public class TridentLoader implements ClientModInitializer {
                 if (macroActive) stopMacro(client);
                 commandsSent = true;
 
-                // First time arriving on island this cycle
                 if (!onIsland) {
                     onIsland = true;
                     islandArrivalTime = System.currentTimeMillis();
                     sendPlayerMessage(client, "§3[§bTrident§3] §7On island.");
                 }
 
-                if (onIsland && bazaarLoaded && relistCooldownTicks == 0 && !relistInProgress
-                        && System.currentTimeMillis() - islandArrivalTime >= 5_000) {
+                long timeOnIsland = System.currentTimeMillis() - islandArrivalTime;
+
+                // Trigger relist after 5s if cooldown is done
+                if (bazaarLoaded && relistCooldownTicks == 0 && !relistInProgress && timeOnIsland >= 5_000) {
                     relistInProgress = true;
                     BazaarModClient.MANUAL_RELIST.trigger(client);
                     sendPlayerMessage(client, "§3[§bTrident§3] §7Starting bazaar relist...");
@@ -343,7 +344,7 @@ public class TridentLoader implements ClientModInitializer {
                         sendPlayerMessage(client, "§3[§bTrident§3] §7Relist finished.");
                     } else {
                         CameraManager.tick();
-                        return; // still relisting
+                        return; // still relisting, wait
                     }
                 }
 
@@ -357,14 +358,15 @@ public class TridentLoader implements ClientModInitializer {
                     }
                 }
 
-                // Ready to leave — warp to murk
-                if (DoneDropping && !relistInProgress) {
+                // Ready to leave — but wait at least 5s AND for relist to be done
+                boolean relistDone = !bazaarLoaded || (!relistInProgress && (relistCooldownTicks > 0 || timeOnIsland >= 5_000));
+                if (DoneDropping && relistDone) {
                     if (now - lastWarpAttempt > WARP_RETRY_MS) {
                         onIsland = false;
                         commandsSent = false;
                         DoneDropping = true;
                         sendServerCommand(client, "warp murk");
-                        WorldChecker.reset(); // force re-confirmation after warp
+                        WorldChecker.reset();
                         sendPlayerMessage(client, "§3[§bTrident§3] §7Warping to Murkwater...");
                         lastWarpAttempt = now;
                     }

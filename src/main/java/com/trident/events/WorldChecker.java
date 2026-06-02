@@ -52,11 +52,9 @@ public class WorldChecker {
             return;
         }
 
-        // Same pending location — check if stable long enough
         if ((now - pendingSince) >= STABILIZE_DELAY_MS) {
             if (detected != currentLocation) {
-                currentLocation = detected;
-                System.out.println("[WorldChecker] Location confirmed: " + currentLocation);
+                currentLocation = detected != null ? detected : Location.SKYBLOCK_UNKNOWN;
             }
         }
     }
@@ -78,8 +76,8 @@ public class WorldChecker {
         }
 
         // Iterate all known score holders and check their display names
+        // We're in Skyblock — read sidebar lines to find zone
         for (ScoreHolder holder : scoreboard.getKnownScoreHolders()) {
-            // Try display name from team prefix/suffix instead of raw name
             var team = scoreboard.getScoreHolderTeam(holder.getNameForScoreboard());
             String line = "";
             if (team != null) {
@@ -93,7 +91,8 @@ public class WorldChecker {
             if (line.contains("tangleburg")) return Location.TANGLEBURG;
         }
 
-        return Location.SKYBLOCK_UNKNOWN;
+        return null; // skyblock loading, zone not visible yet — wait
+
     }
 
     public static boolean isScoreboardTimedOut() {
