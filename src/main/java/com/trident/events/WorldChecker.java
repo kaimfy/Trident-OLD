@@ -1,64 +1,114 @@
 package com.trident.events;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.ScoreboardDisplaySlot;
-import net.minecraft.scoreboard.ScoreboardObjective;
+import net.minecraft.scoreboard.*;
+
+import java.util.Collection;
 
 public class WorldChecker {
-    public static int LobbyCheck = 0;
 
-    private static String stableTitle = "";       // last confirmed stable title
-    private static String pendingTitle = "";      // title we're waiting to stabilize
-    private static long pendingTitleSince = -1;   // when we first saw pendingTitle
+    public enum Location {
+        MURKWATER,
+        YOUR_ISLAND,
+        TANGLEBURG,
+        SKYBLOCK_UNKNOWN,
+        LOBBY,
+        LIMBO
+    }
 
-    private static final long STABILIZE_DELAY_MS = 1500; // wait 1.5s before trusting a new title
+    // How long to wait for scoreboard to appear before declaring limbo
+    private static final long SCOREBOARD_TIMEOUT_MS = 10_000;
+    // How long a scoreboard state must be stable before we trust it
+    private static final long STABILIZE_DELAY_MS = 1_500;
 
-    public static void checkWorld(MinecraftClient client) {
+    private static Location currentLocation = null;
+    private static Location pendingLocation = null;
+    private static long pendingSince = -1;
+    private static long noScoreboardSince = -1;
+
+    // Called every tick only when macro is active
+    public static void tick(MinecraftClient client) {
         if (client.world == null) {
-            stableTitle = "";
-            pendingTitle = "";
-            pendingTitleSince = -1;
-            LobbyCheck = 0;
+            reset();
             return;
         }
 
-        String currentTitle = getScoreboardTitle(client);
-        if (currentTitle == null) currentTitle = "";
-
+        Location detected = detectLocation(client);
         long now = System.currentTimeMillis();
 
-        if (!currentTitle.equals(pendingTitle)) {
-            // Title just changed — start the stabilization timer
-            pendingTitle = currentTitle;
-            pendingTitleSince = now;
-            return; // don't act yet
+        if (detected == null) {
+            // No scoreboard yet
+            if (noScoreboardSince == -1) noScoreboardSince = now;
+            pendingLocation = null;
+            pendingSince = -1;
+            return;
         }
 
-        // Title has been the same since pendingTitleSince — check if it's been stable long enough
-        if (pendingTitleSince != -1 && (now - pendingTitleSince) >= STABILIZE_DELAY_MS) {
-            if (!pendingTitle.equals(stableTitle)) {
-                // Title has stabilized and is different from what we last acted on
-                stableTitle = pendingTitle;
-                pendingTitleSince = -1;
+        noScoreboardSince = -1;
 
-                String lower = stableTitle.toLowerCase();
-                if (lower.contains("skyblock")) {
-                    LobbyCheck = 0;
-                } else if (lower.contains("hypixel")) {
-                    LobbyCheck = 1;
-                } else {
-                    LobbyCheck = 2;
-                }
+        if (detected != pendingLocation) {
+            pendingLocation = detected;
+            pendingSince = now;
+            return;
+        }
 
-                System.out.println("[LobbyDetector] Stable title confirmed: \"" + stableTitle + "\" → LobbyCheck=" + LobbyCheck);
+        // Same pending location — check if stable long enough
+        if ((now - pendingSince) >= STABILIZE_DELAY_MS) {
+            if (detected != currentLocation) {
+                currentLocation = detected;
+                System.out.println("[WorldChecker] Location confirmed: " + currentLocation);
             }
         }
     }
 
-    private static String getScoreboardTitle(MinecraftClient client) {
+    // Returns null if no scoreboard present
+    private static Location detectLocation(MinecraftClient client) {
         Scoreboard scoreboard = client.world.getScoreboard();
         ScoreboardObjective sidebar = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.SIDEBAR);
-        return sidebar != null ? sidebar.getDisplayName().getString() : null;
+
+        if (sidebar == null) return null;
+
+        String title = sidebar.getDisplayName().getString().toLowerCase();
+
+        if (!title.contains("skyblock")) {
+            if (title.contains("hypixel") || title.contains("prototype")) {
+                return Location.LOBBY;
+            }
+            return null;
+        }
+
+        // Iterate all known score holders and check their display names
+        for (ScoreHolder holder : scoreboard.getKnownScoreHolders()) {
+            // Try display name from team prefix/suffix instead of raw name
+            var team = scoreboard.getScoreHolderTeam(holder.getNameForScoreboard());
+            String line = "";
+            if (team != null) {
+                line = (team.getPrefix().getString() + holder.getNameForScoreboard() + team.getSuffix().getString())
+                        .replaceAll("§.", "")
+                        .toLowerCase()
+                        .trim();
+            }
+            if (line.contains("murkwater")) return Location.MURKWATER;
+            if (line.contains("your island")) return Location.YOUR_ISLAND;
+            if (line.contains("tangleburg")) return Location.TANGLEBURG;
+        }
+
+        return Location.SKYBLOCK_UNKNOWN;
+    }
+
+    public static boolean isScoreboardTimedOut() {
+        return noScoreboardSince != -1 &&
+                (System.currentTimeMillis() - noScoreboardSince) >= SCOREBOARD_TIMEOUT_MS;
+    }
+
+    public static Location getLocation() {
+        return currentLocation;
+    }
+
+    public static void reset() {
+        currentLocation = null;
+        pendingLocation = null;
+        pendingSince = -1;
+        noScoreboardSince = -1;
     }
 }

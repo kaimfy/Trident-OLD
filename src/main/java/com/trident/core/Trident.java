@@ -32,7 +32,7 @@ public class Trident implements ModInitializer {
 		if (!access) {
 			return;
 		}
-		// setThemecolor();
+		setThemecolor();
 
 		MinecraftClient mcclient = MinecraftClient.getInstance();
 		mcclient.execute(() -> {

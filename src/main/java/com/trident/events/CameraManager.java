@@ -37,6 +37,7 @@ public class CameraManager {
     private static boolean picklecheck = false;
     public static int pickleamount = 80;
     private static int sneakdelay = 0;
+
     public static void toggleMacro() {
         if (active) {
             stopMacro();
@@ -123,15 +124,27 @@ public class CameraManager {
             return;
         }
 
-        // increment stuck counter
         tickstuckCounter++;
         if (tickstuckCounter >= 120) {
-            sendMessage("§3[§bTrident§3] §7Stuck Detected. Skipping point");
-            nextTarget();
+            sendMessage("§3[§bTrident§3] §7Stuck Detected.");
+
+            client.options.jumpKey.setPressed(false);
+            client.options.sneakKey.setPressed(false);
+            client.options.forwardKey.setPressed(false);
+            client.options.sprintKey.setPressed(false);
+
+            tickstuckCounter = 0;
+            currentTarget = null;
+            targetPositions.clear();
+            active = false;
+            picklecheck = false;
+            raisedTarget = false;
+            stuckTicks = 0;
+            firstblock = false;
+
             return;
         }
 
-        // safeguard in case currentTarget became null
         if (currentTarget == null) return;
 
         ClientPlayerEntity player = client.player;
@@ -148,7 +161,7 @@ public class CameraManager {
         if (isInWater) handleWaterMovement(playerEyePos, targetCenter);
         else handleLandMovement(distXZ, dy);
 
-        if (distXZ < reachDistance + targetMargin && dy < 0.5) nextTarget();
+        if (distXZ < reachDistance + targetMargin && dy < 1.5) nextTarget();
 
         wasInWater = isInWater;
     }
@@ -164,7 +177,6 @@ public class CameraManager {
             if (pickles < pickleamount) {
                 sendMessage("§3[§bTrident§3] §7Not enough pickles, ending route");
 
-                // Fully complete the route
                 client.options.jumpKey.setPressed(false);
                 client.options.sneakKey.setPressed(false);
                 client.options.forwardKey.setPressed(false);
@@ -179,12 +191,9 @@ public class CameraManager {
                 stuckTicks = 0;
                 firstblock = false;
 
-
-
-                return; // stop processing movement
+                return;
             }
         }
-
 
         assert player != null;
         if (player.isOnGround()) {
@@ -196,7 +205,7 @@ public class CameraManager {
                 client.options.jumpKey.setPressed(true);
                 client.options.sneakKey.setPressed(false);
             } else if (targetCenter.y < playerEyePos.y - 0.3) {
-                if(sneakdelay == 0) {
+                if (sneakdelay == 0) {
                     client.options.sneakKey.setPressed(true);
                     client.options.jumpKey.setPressed(false);
                 }
@@ -205,7 +214,7 @@ public class CameraManager {
                 client.options.sneakKey.setPressed(false);
             }
         }
-        if(sneakdelay >0){
+        if (sneakdelay > 0) {
             sneakdelay--;
         }
 
@@ -238,7 +247,7 @@ public class CameraManager {
             client.options.jumpKey.setPressed(true);
         } else client.options.jumpKey.setPressed(false);
 
-        if (wasInWater || distXZ > reachDistance) {
+        if (wasInWater || distXZ > 0.5) {
             client.options.forwardKey.setPressed(true);
             client.options.sprintKey.setPressed(true);
         }
@@ -271,6 +280,8 @@ public class CameraManager {
 
     private static void nextTarget() {
         tickstuckCounter = 0;
+        raisedTarget = false;
+        stuckTicks = 0;
 
         if (targetPositions.isEmpty()) {
             stopMacro();
@@ -279,7 +290,7 @@ public class CameraManager {
 
         BlockPos next = targetPositions.remove(0);
         if (next == null) {
-            nextTarget(); // safely skip null
+            nextTarget();
             return;
         }
 
@@ -351,7 +362,7 @@ public class CameraManager {
             client.player.sendMessage(Text.literal(message), false);
         }
     }
-    // Preset / route management
+
     public static void loadPresetRoute(String name) {
         List<BlockPos> route = RouteManager.loadRoute(name);
         if (route != null) {
