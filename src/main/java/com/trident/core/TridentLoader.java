@@ -81,7 +81,7 @@ public class TridentLoader implements ClientModInitializer {
     private static boolean onIsland = false;
     private int relistCooldownTicks = 0;
     private boolean relistInProgress = false;
-    private static final int RELIST_INTERVAL_TICKS = 20 * 20 ;
+    private static final int RELIST_INTERVAL_TICKS = 20 * 60 * 15;
 
     // Warp retry
     private static final long WARP_RETRY_MS = 4_000;

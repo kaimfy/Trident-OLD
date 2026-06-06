@@ -75,8 +75,7 @@ public class WorldChecker {
             return null;
         }
 
-        // Iterate all known score holders and check their display names
-        // We're in Skyblock — read sidebar lines to find zone
+
         for (ScoreHolder holder : scoreboard.getKnownScoreHolders()) {
             var team = scoreboard.getScoreHolderTeam(holder.getNameForScoreboard());
             String line = "";
@@ -89,9 +88,10 @@ public class WorldChecker {
             if (line.contains("murkwater")) return Location.MURKWATER;
             if (line.contains("your island")) return Location.YOUR_ISLAND;
             if (line.contains("tangleburg")) return Location.TANGLEBURG;
+            if (line.contains("village")) return Location.TANGLEBURG;
         }
 
-        return null; // skyblock loading, zone not visible yet — wait
+        return null;
 
     }
 
