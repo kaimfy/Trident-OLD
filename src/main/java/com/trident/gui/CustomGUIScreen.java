@@ -33,7 +33,7 @@ public class CustomGUIScreen extends Screen {
     private final int[] sidebarButtonColors = new int[20];
 
     // Image identifiers - place your images in assets/trident/textures/gui/
-    private static final Identifier PANEL_BACKGROUND_IMAGE = Identifier.of("trident", "textures/gui/menu/panel_background.png");
+
     private static final Identifier LOGO_IMAGE = Identifier.of("trident", "textures/gui/menu/logo.png");
     private static final Identifier DECORATION_IMAGE = Identifier.of("trident", "textures/gui/menu/decoration.png");
 
@@ -111,13 +111,11 @@ public class CustomGUIScreen extends Screen {
 
         // ========== Draw panel background image (exactly where the menu panel was) ==========
         // This REPLACES the solid color background
-        context.drawTexture(RenderPipelines.GUI_TEXTURED, PANEL_BACKGROUND_IMAGE,
-                panelX, panelY,                    // x, y position
-                0, 0,                               // u, v texture coordinates
-                fullPanelWidth, fullPanelHeight,    // width, height to draw
-                fullPanelWidth, fullPanelHeight,    // texture width, texture height
-                -1);                                 // color tint (-1 = no tint)
-
+        context.fill(
+                panelX, panelY,
+                panelX + fullPanelWidth, panelY + fullPanelHeight,
+                0x99000000  // ARGB: ~60% opacity black
+        );
         // ========== REMOVED: No more solid color fill for the panel ==========
         // The panel background is now just the image
 

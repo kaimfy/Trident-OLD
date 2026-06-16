@@ -48,18 +48,12 @@ public class Trident implements ModInitializer {
 
 	private void setThemecolor() {
 		SecureRandom r = new SecureRandom();
-		switch (r.nextInt(4)) {
+		switch (r.nextInt(2)) {
 			case 0:
-				themecolor = "green";
+				themecolor = "red";
 				break;
 			case 1:
-				themecolor = "blue";
-				break;
-			case 2:
 				themecolor = "purple";
-				break;
-			case 3:
-				themecolor = "red";
 				break;
 		}
 	}
