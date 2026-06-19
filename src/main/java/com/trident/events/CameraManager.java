@@ -169,31 +169,7 @@ public class CameraManager {
     private static void handleWaterMovement(Vec3d playerEyePos, Vec3d targetCenter) {
         ClientPlayerEntity player = client.player;
 
-        if (!picklecheck) {
-            picklecheck = true;
-            int pickles = countSeaPicklesInArea();
-            sendMessage("§3[§bTrident§3] §7Sea Pickles Found: " + pickles);
 
-            if (pickles < pickleamount) {
-                sendMessage("§3[§bTrident§3] §7Not enough pickles, ending route");
-
-                client.options.jumpKey.setPressed(false);
-                client.options.sneakKey.setPressed(false);
-                client.options.forwardKey.setPressed(false);
-                client.options.sprintKey.setPressed(false);
-
-                tickstuckCounter = 0;
-                currentTarget = null;
-                targetPositions.clear();
-                active = false;
-                picklecheck = false;
-                raisedTarget = false;
-                stuckTicks = 0;
-                firstblock = false;
-
-                return;
-            }
-        }
 
         assert player != null;
         if (player.isOnGround()) {
@@ -253,7 +229,7 @@ public class CameraManager {
         }
     }
 
-    private static int countSeaPicklesInArea() {
+    public static int countSeaPicklesInArea() {
         if (client.world == null) return 0;
 
         int count = 0;

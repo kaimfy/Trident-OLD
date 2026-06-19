@@ -105,6 +105,7 @@ public class TridentLoader implements ClientModInitializer {
     public void onInitializeClient() {
         bazaarLoaded = FabricLoader.getInstance().isModLoaded("bazaarmod");
 
+
         if (false) {
             ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
                 if (!joinedServer) {
@@ -152,6 +153,7 @@ public class TridentLoader implements ClientModInitializer {
 
             UpdateFrame();
             SeaLumiesTracker.tick(client.player);
+
 
             // ── Key handlers ────────────────────────────────────────────────
             if (KeyHandler.shardkill.wasPressed()) {
@@ -293,8 +295,22 @@ public class TridentLoader implements ClientModInitializer {
             else if (loc == WorldChecker.Location.MURKWATER) {
                 // Correct zone — start macro if not already running
                 if (!macroActive && !commandsSent) {
-                    sendPlayerMessage(client, "§3[§bTrident§3] §7In Murkwater, starting macro");
-                    startMacro(client);
+                    int pickles = CameraManager.countSeaPicklesInArea();
+                    sendPlayerMessage(client,"§3[§bTrident§3] §7Sea Pickles Found: " + pickles);
+                    if(pickles < CameraManager.pickleamount){
+
+                        stopMacro(client);
+                        commandsSent = true;
+                        onIsland = false;
+                        sendServerCommand(client, "is");
+                        WorldChecker.reset(); // force re-confirmation after warp
+                        lastWarpAttempt = now;
+                    }else{
+                        sendPlayerMessage(client, "§3[§bTrident§3] §7In Murkwater, starting macro");
+                        startMacro(client);
+                    }
+
+
                 }
 
                 // Check if path finished
