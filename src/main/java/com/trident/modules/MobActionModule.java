@@ -8,6 +8,7 @@ import net.minecraft.util.Hand;
 
 import java.util.List;
 
+@SuppressWarnings("null")
 public class MobActionModule {
 
     private static final MinecraftClient client = MinecraftClient.getInstance();

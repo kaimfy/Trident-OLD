@@ -2,8 +2,6 @@ package com.trident.network;
 
 import com.google.gson.stream.JsonReader;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
 
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -17,6 +15,7 @@ public class BazaarPriceFetcher {
     private static boolean isFetching = false;
     private static String lastStatus = "Not fetched yet";
 
+    @SuppressWarnings("deprecation")
     public static void fetchPriceAsync() {
         if (isFetching) {
             debugLog("Fetch already in progress - skipping");

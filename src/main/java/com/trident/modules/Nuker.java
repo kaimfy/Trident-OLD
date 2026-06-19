@@ -1,13 +1,11 @@
 package com.trident.modules;
 
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
@@ -19,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+@SuppressWarnings("null")
 public class Nuker {
     private static final MinecraftClient client = MinecraftClient.getInstance();
     private static boolean enabled = false;
@@ -27,7 +26,6 @@ public class Nuker {
 
     public static void setToggle(boolean val) {
         enabled = val;
-        assert client.player != null;
     }
 
     public static void init() {
@@ -46,8 +44,8 @@ public class Nuker {
     }
 
     private static BlockPos findNearestPickle(ClientPlayerEntity player) {
-        assert client.player != null;
-        Vec3d playerPos = new Vec3d(client.player.getX(), client.player.getY(), client.player.getZ());
+        if (player == null || client.world == null) return null;
+        Vec3d playerPos = new Vec3d(player.getX(), player.getY(), player.getZ());
 
         double radius = 4.5;
 

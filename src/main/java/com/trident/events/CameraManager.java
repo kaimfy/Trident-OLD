@@ -8,10 +8,9 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.state.property.Properties;
 import net.minecraft.text.Text;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.block.Blocks;
 
 import java.util.ArrayList;
@@ -34,7 +33,6 @@ public class CameraManager {
     private static int stuckTicks = 0;
     private static boolean raisedTarget = false;
     private static boolean firstblock = false;
-    private static boolean picklecheck = false;
     public static int pickleamount = 80;
     private static int sneakdelay = 0;
 
@@ -70,7 +68,6 @@ public class CameraManager {
     public static void stopMacro() {
         active = false;
         currentTarget = null;
-        picklecheck = false;
         firstblock = false;
         client.options.jumpKey.setPressed(false);
         client.options.sneakKey.setPressed(false);
@@ -95,8 +92,9 @@ public class CameraManager {
     }
 
     private static void updateTargetAngles() {
-        if (client.player == null || currentTarget == null) return;
-        Vec3d playerPos = client.player.getEyePos();
+        ClientPlayerEntity player = client.player;
+        if (player == null || currentTarget == null) return;
+        Vec3d playerPos = player.getEyePos();
         Vec3d targetCenter = Vec3d.ofCenter(currentTarget).add(targetOffset);
         Vec3d targetVec = targetCenter.subtract(playerPos);
 
@@ -137,7 +135,6 @@ public class CameraManager {
             currentTarget = null;
             targetPositions.clear();
             active = false;
-            picklecheck = false;
             raisedTarget = false;
             stuckTicks = 0;
             firstblock = false;
@@ -148,6 +145,7 @@ public class CameraManager {
         if (currentTarget == null) return;
 
         ClientPlayerEntity player = client.player;
+        if (player == null) return;
         Vec3d playerEyePos = player.getEyePos();
         Vec3d targetCenter = safeVec(currentTarget).add(targetOffset);
 
@@ -171,7 +169,7 @@ public class CameraManager {
 
 
 
-        assert player != null;
+        if (player == null) return;
         if (player.isOnGround()) {
             sneakdelay = 5;
             client.options.jumpKey.setPressed(false);
@@ -217,6 +215,7 @@ public class CameraManager {
 
     private static void handleLandMovement(double distXZ, double dy) {
         ClientPlayerEntity player = client.player;
+        if (player == null) return;
         client.options.sneakKey.setPressed(false);
 
         if (!player.isSprinting() && player.isOnGround() && firstblock) {
@@ -241,11 +240,13 @@ public class CameraManager {
             for (int y = minY; y <= maxY; y++) {
                 for (int z = minZ; z <= maxZ; z++) {
                     BlockPos pos = new BlockPos(x, y, z);
-                    var state = client.world.getBlockState(pos);
-                    if (state.getBlock() == Blocks.SEA_PICKLE &&
-                            state.contains(Properties.PICKLES) &&
-                            state.get(Properties.PICKLES) >= 3) {
-                        count++;
+                    if (client.world != null) {
+                        var state = client.world.getBlockState(pos);
+                        if (state.getBlock() == Blocks.SEA_PICKLE &&
+                                state.contains(Properties.PICKLES) &&
+                                state.get(Properties.PICKLES) >= 3) {
+                            count++;
+                        }
                     }
                 }
             }
@@ -289,6 +290,7 @@ public class CameraManager {
         if (!active || client.player == null || currentTarget == null) return;
 
         ClientPlayerEntity player = client.player;
+        if (player == null) return;
         updateTargetAngles();
 
         float speed = player.isTouchingWater() ? rotateSpeed * 1.5f : rotateSpeed;
@@ -317,9 +319,11 @@ public class CameraManager {
         point--;
         if (point >= 0) {
             sendMessage("§3[§bTrident§3] §7Edited point #" + (point + 1));
-            assert MinecraftClient.getInstance().player != null;
-            savePosition.set(point, MinecraftClient.getInstance().player.getBlockPos());
-            TridentLoader.getInstance().editblockpoint(point);
+            ClientPlayerEntity player = MinecraftClient.getInstance().player;
+            if (player != null) {
+                savePosition.set(point, player.getBlockPos());
+                TridentLoader.getInstance().editblockpoint(point);
+            }
         } else sendMessage("§3[§bTrident§3] §7Point #" + (point + 1) + " is not valid");
     }
 
@@ -327,9 +331,11 @@ public class CameraManager {
         point--;
         if (point >= 0) {
             sendMessage("§3[§bTrident§3] §7Removed point #" + (point + 1));
-            assert MinecraftClient.getInstance().player != null;
-            savePosition.remove(point);
-            TridentLoader.getInstance().removeblockpoint(point);
+            ClientPlayerEntity player = MinecraftClient.getInstance().player;
+            if (player != null) {
+                savePosition.remove(point);
+                TridentLoader.getInstance().removeblockpoint(point);
+            }
         } else sendMessage("§3[§bTrident§3] §7Point #" + (point + 1) + " is not valid");
     }
 

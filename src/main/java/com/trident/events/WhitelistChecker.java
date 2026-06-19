@@ -18,7 +18,7 @@ public class WhitelistChecker {
     }
 
     private String sendGet(String urlStr) throws Exception {
-        URL url = new URL(urlStr);
+        URL url = new java.net.URI(urlStr).toURL();
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setRequestMethod("GET");
 

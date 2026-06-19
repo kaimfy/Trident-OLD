@@ -10,6 +10,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 
+@SuppressWarnings("null")
 public class AutoFishModule {
     private final MinecraftClient mc = MinecraftClient.getInstance();
     private boolean enabled = false;
@@ -83,7 +84,7 @@ public class AutoFishModule {
     }
 
     public void tick() {
-        if (!enabled || mc.player == null || mc.world == null) return;
+        if (!enabled || mc.player == null || mc.world == null || mc.interactionManager == null) return;
 
         ClientPlayerEntity player = mc.player;
 

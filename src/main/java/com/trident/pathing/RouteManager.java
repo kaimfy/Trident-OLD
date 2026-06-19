@@ -8,7 +8,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.client.MinecraftClient;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -134,6 +133,7 @@ public class RouteManager {
         }
     }
 
+    @SuppressWarnings("null")
     private static void sendMessage(String message) {
         if (MinecraftClient.getInstance().player != null) {
             MinecraftClient.getInstance().player.sendMessage(Text.literal(message), false);

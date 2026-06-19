@@ -3,8 +3,6 @@ package com.trident.events;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.scoreboard.*;
 
-import java.util.Collection;
-
 public class WorldChecker {
 
     public enum Location {
@@ -61,6 +59,7 @@ public class WorldChecker {
 
     // Returns null if no scoreboard present
     private static Location detectLocation(MinecraftClient client) {
+        if (client.world == null) return null;
         Scoreboard scoreboard = client.world.getScoreboard();
         ScoreboardObjective sidebar = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.SIDEBAR);
 

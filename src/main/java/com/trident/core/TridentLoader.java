@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+@SuppressWarnings({"deprecation", "null"})
 public class TridentLoader implements ClientModInitializer {
 
     public static final Set<String> TARGET_PLAYERS = new HashSet<>(Arrays.asList(
@@ -60,15 +61,12 @@ public class TridentLoader implements ClientModInitializer {
     private long islandArrivalTime = 0;
     private final AutoFishModule autoFish = new AutoFishModule();
     private static int framecount = 0;
-    private final KeyHandler keyHandler = new KeyHandler();
     public List<BlockPos> blockList = new ArrayList<>();
-    private int currentTargetIndex = 0;
 
     public static boolean macroActive = false;
     public static boolean macrotoggle = false;
     public static boolean commandsSent = false;
 
-    private static boolean ESPToggle = false;
     private static boolean DoneDropping = true;
     private boolean droppingInProgress = false;
     private int dropIndex = 0;
@@ -105,17 +103,6 @@ public class TridentLoader implements ClientModInitializer {
     public void onInitializeClient() {
         bazaarLoaded = FabricLoader.getInstance().isModLoaded("bazaarmod");
 
-
-        if (false) {
-            ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-                if (!joinedServer) {
-                    joinedServer = true;
-                    sendPlayerMessage(client, "§3[§bTrident§3] §7Couldnt Verify Your Account, Please Check Your Authentication.");
-                }
-            });
-            return;
-        }
-
         switch (theme) {
             case "purple": r = 0.7f; g = 0.2f; b = 1f;   break;
             case "red":    r = 1f;   g = 0.2f; b = 0.2f; break;
@@ -126,7 +113,7 @@ public class TridentLoader implements ClientModInitializer {
         BazaarPriceFetcher.fetchPriceAsync();
         ApplicaConfigurazioni();
         RouteCommands.register();
-        keyHandler.register();
+        KeyHandler.register();
 
         MacroConfig config = MacroConfig.get();
         SeaLumiesTracker.loadFromConfig(
@@ -150,8 +137,9 @@ public class TridentLoader implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-
             UpdateFrame();
+            if (client.world == null || client.player == null || client.getNetworkHandler() == null) return;
+            
             SeaLumiesTracker.tick(client.player);
 
 
@@ -169,10 +157,10 @@ public class TridentLoader implements ClientModInitializer {
 
             autoFish.tick();
 
-            if (keyHandler.custommenu.wasPressed()) {
+            if (KeyHandler.custommenu.wasPressed()) {
                 MinecraftClient.getInstance().setScreen(new CustomGUIScreen());
             }
-            if (keyHandler.menu.wasPressed()) {
+            if (KeyHandler.menu.wasPressed()) {
                 client.execute(() -> client.mouse.unlockCursor());
             }
             if (KeyHandler.startmacro.wasPressed()) {
@@ -205,7 +193,7 @@ public class TridentLoader implements ClientModInitializer {
                 PathVisualizer.spawnPathMarkers(blockList);
             }
 
-            if (keyHandler.fish.wasPressed()) {
+            if (KeyHandler.fish.wasPressed()) {
                 autoFish.toggle();
             }
 
@@ -222,8 +210,6 @@ public class TridentLoader implements ClientModInitializer {
             if (client.currentScreen != null && client.currentScreen.shouldPause()) {
                 stopMacro(client);
             }
-
-            if (client.world == null || client.player == null || client.getNetworkHandler() == null) return;
 
             tickCounter++;
 
@@ -430,6 +416,7 @@ public class TridentLoader implements ClientModInitializer {
     }
 
     private static void checkPlayersOnce(MinecraftClient client) {
+        if (client.world == null) return;
         for (PlayerEntity player : client.world.getPlayers()) {
             String playerName = player.getName().getString();
             if (TARGET_PLAYERS.contains(playerName)) {
@@ -464,12 +451,13 @@ public class TridentLoader implements ClientModInitializer {
     }
 
     private void scheduleNextDrop(MinecraftClient client) {
-        if (client.player == null || client.interactionManager == null) {
+        PlayerEntity player = client.player;
+        if (player == null || client.interactionManager == null) {
             droppingInProgress = false;
             DoneDropping = true;
             return;
         }
-        PlayerInventory inv = client.player.getInventory();
+        PlayerInventory inv = player.getInventory();
         while (dropIndex < inv.size()) {
             ItemStack stack = inv.getStack(dropIndex);
             dropIndex++;
@@ -478,11 +466,11 @@ public class TridentLoader implements ClientModInitializer {
             if (name.contains("enchanted sea lumies")) {
                 int slotId = dropIndex - 1 < 9 ? 36 + (dropIndex - 1) : (dropIndex - 1);
                 client.interactionManager.clickSlot(
-                        client.player.currentScreenHandler.syncId,
+                        player.currentScreenHandler.syncId,
                         slotId,
                         1,
                         SlotActionType.THROW,
-                        client.player
+                        player
                 );
                 CompletableFuture.delayedExecutor(300, TimeUnit.MILLISECONDS)
                         .execute(() -> scheduleNextDrop(client));
@@ -498,7 +486,6 @@ public class TridentLoader implements ClientModInitializer {
     private void startMacro(MinecraftClient client) {
         macroActive = true;
         commandsSent = false;
-        currentTargetIndex = 0;
         onIsland = false;
         relistInProgress = false;
         SeaLumiesHUD.setManualStop(false);
@@ -528,7 +515,6 @@ public class TridentLoader implements ClientModInitializer {
     }
 
     public void ESPToggle(boolean val) {
-        ESPToggle = val;
     }
 
     public static int getRelistCooldownTicks() {
@@ -548,18 +534,21 @@ public class TridentLoader implements ClientModInitializer {
     }
 
     private void sendServerCommand(MinecraftClient client, String command) {
-        if (client.getNetworkHandler() != null && client.player != null) {
+        var handler = client.getNetworkHandler();
+        PlayerEntity player = client.player;
+        if (handler != null && player != null) {
             try {
-                client.getNetworkHandler().sendChatCommand(command);
+                handler.sendChatCommand(command);
             } catch (Exception e) {
-                client.player.sendMessage(Text.literal("§3[§bTrident§3] §7Failed to send command: " + e.getMessage()), false);
+                player.sendMessage(Text.literal("§3[§bTrident§3] §7Failed to send command: " + e.getMessage()), false);
             }
         }
     }
 
     private static void sendPlayerMessage(MinecraftClient client, String message) {
-        if (client.player != null) {
-            client.player.sendMessage(Text.literal(message), false);
+        PlayerEntity player = client.player;
+        if (player != null) {
+            player.sendMessage(Text.literal(message), false);
         }
     }
 
@@ -570,15 +559,19 @@ public class TridentLoader implements ClientModInitializer {
     }
 
     public void editblockpoint(int point) {
-        assert MinecraftClient.getInstance().player != null;
-        blockList.set(point, MinecraftClient.getInstance().player.getBlockPos());
-        PathVisualizer.spawnPathMarkers(blockList);
+        PlayerEntity player = MinecraftClient.getInstance().player;
+        if (player != null) {
+            blockList.set(point, player.getBlockPos());
+            PathVisualizer.spawnPathMarkers(blockList);
+        }
     }
 
     public void removeblockpoint(int point) {
-        assert MinecraftClient.getInstance().player != null;
-        blockList.remove(point);
-        PathVisualizer.spawnPathMarkers(blockList);
+        PlayerEntity player = MinecraftClient.getInstance().player;
+        if (player != null) {
+            blockList.remove(point);
+            PathVisualizer.spawnPathMarkers(blockList);
+        }
     }
 
     private void drawBoxEdges(MatrixStack matrices, VertexConsumer buffer, Box box,

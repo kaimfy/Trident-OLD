@@ -1,8 +1,7 @@
 package com.trident.gui;
 
-import com.trident.core.Trident;
 import com.trident.core.TridentLoader;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.trident.core.Trident;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
@@ -12,16 +11,12 @@ import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import com.trident.core.TridentLoader;
 
 public class CustomMainMenuScreen extends Screen {
 
 
-    // For your texture
-    private final java.util.Map<ButtonWidget, Float> hoverProgress = new java.util.HashMap<>();
     private static String theme = Trident.getThemecolor();
     private static final Identifier LOGO = Identifier.of("trident", "textures/gui/"+theme+"/icon.png");
 

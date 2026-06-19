@@ -1,17 +1,11 @@
 package com.trident.events;
 
 import com.trident.core.TridentLoader;
-
-import com.trident.core.TridentLoader;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.DisconnectedScreen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
+import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
-import net.minecraft.client.network.CookieStorage;
-import net.minecraft.text.Text;
 
 public class AutoJoinHypixel {
     private static int timer = 0;
@@ -20,7 +14,7 @@ public class AutoJoinHypixel {
 
     public static void init() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (!TridentLoader.getInstance().macrotoggle) return;
+            if (!TridentLoader.macrotoggle) return;
 
             // Don't try to connect if already on a server or in a menu
             if (client.getNetworkHandler() != null || client.world != null) return;

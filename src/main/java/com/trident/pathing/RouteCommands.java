@@ -3,8 +3,6 @@ package com.trident.pathing;
 import com.trident.events.CameraManager;
 
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -14,6 +12,7 @@ import net.minecraft.text.Text;
 import java.util.List;
 
 public class RouteCommands {
+    @SuppressWarnings("null")
     public static void register() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             // Save command
