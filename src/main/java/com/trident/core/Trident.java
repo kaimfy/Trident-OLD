@@ -27,7 +27,7 @@ public class Trident implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		access = checker.isUserWhitelisted(MinecraftClient.getInstance().getSession().getUsername());
+		access = true;// checker.isUserWhitelisted(MinecraftClient.getInstance().getSession().getUsername());
 		System.out.println("access: " + access);
 		if (!access) {
 			return;

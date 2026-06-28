@@ -9,6 +9,8 @@ import com.trident.events.WorldChecker;
 import com.trident.gui.CustomGUIScreen;
 import com.trident.gui.SeaLumiesHUD;
 import com.trident.modules.AutoFishModule;
+import com.trident.modules.DwarvenMiningModule;
+import com.trident.modules.FailsafeManager;
 import com.trident.modules.MobActionModule;
 import com.trident.modules.Nuker;
 import com.trident.network.BazaarPriceFetcher;
@@ -49,13 +51,12 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-@SuppressWarnings({"deprecation", "null"})
+@SuppressWarnings({ "deprecation", "null" })
 public class TridentLoader implements ClientModInitializer {
 
     public static final Set<String> TARGET_PLAYERS = new HashSet<>(Arrays.asList(
             "yuvet",
-            "FunDaOne"
-    ));
+            "FunDaOne"));
 
     private static boolean joinedServer = false;
     private long islandArrivalTime = 0;
@@ -104,12 +105,22 @@ public class TridentLoader implements ClientModInitializer {
         bazaarLoaded = FabricLoader.getInstance().isModLoaded("bazaarmod");
 
         switch (theme) {
-            case "purple": r = 0.7f; g = 0.2f; b = 1f;   break;
-            case "red":    r = 1f;   g = 0.2f; b = 0.2f; break;
+            case "purple":
+                r = 0.7f;
+                g = 0.2f;
+                b = 1f;
+                break;
+            case "red":
+                r = 1f;
+                g = 0.2f;
+                b = 0.2f;
+                break;
         }
 
         AutoJoinHypixel.init();
         Nuker.init();
+        DwarvenMiningModule.init();
+        FailsafeManager.init();
         BazaarPriceFetcher.fetchPriceAsync();
         ApplicaConfigurazioni();
         RouteCommands.register();
@@ -118,8 +129,7 @@ public class TridentLoader implements ClientModInitializer {
         MacroConfig config = MacroConfig.get();
         SeaLumiesTracker.loadFromConfig(
                 config.lifetimeCoins,
-                config.lifetimeMacroMinutes
-        );
+                config.lifetimeMacroMinutes);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             MacroConfig meow = MacroConfig.get();
             meow.lifetimeCoins = SeaLumiesTracker.getLifetimeCoinsForSave();
@@ -138,10 +148,10 @@ public class TridentLoader implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             UpdateFrame();
-            if (client.world == null || client.player == null || client.getNetworkHandler() == null) return;
-            
-            SeaLumiesTracker.tick(client.player);
+            if (client.world == null || client.player == null || client.getNetworkHandler() == null)
+                return;
 
+            SeaLumiesTracker.tick(client.player);
 
             // ── Key handlers ────────────────────────────────────────────────
             if (KeyHandler.shardkill.wasPressed()) {
@@ -153,7 +163,8 @@ public class TridentLoader implements ClientModInitializer {
                     MobActionModule.isOn = true;
                 }
             }
-            if (MobActionModule.isOn) MobActionModule.onTick();
+            if (MobActionModule.isOn)
+                MobActionModule.onTick();
 
             autoFish.tick();
 
@@ -189,7 +200,8 @@ public class TridentLoader implements ClientModInitializer {
                 BlockPos pos = client.player.getBlockPos();
                 blockList.add(pos);
                 CameraManager.addsave(pos);
-                sendPlayerMessage(client, "§3[§bTrident§3] §7Saved position #" + blockList.size() + " at: " + pos.toShortString());
+                sendPlayerMessage(client,
+                        "§3[§bTrident§3] §7Saved position #" + blockList.size() + " at: " + pos.toShortString());
                 PathVisualizer.spawnPathMarkers(blockList);
             }
 
@@ -235,7 +247,8 @@ public class TridentLoader implements ClientModInitializer {
 
             // ── Limbo detection (no scoreboard for 10s) ──────────────────────
             if (WorldChecker.isScoreboardTimedOut()) {
-                if (macroActive) stopMacro(client);
+                if (macroActive)
+                    stopMacro(client);
                 long now = System.currentTimeMillis();
                 if (now - lastWarpAttempt > WARP_RETRY_MS) {
                     sendPlayerMessage(client, "§3[§bTrident§3] §7Limbo detected, sending /lobby");
@@ -261,29 +274,28 @@ public class TridentLoader implements ClientModInitializer {
 
             if (loc == null) {
                 // Scoreboard not loaded yet, wait
-            }
-            else if (loc == WorldChecker.Location.LOBBY) {
-                if (macroActive) stopMacro(client);
+            } else if (loc == WorldChecker.Location.LOBBY) {
+                if (macroActive)
+                    stopMacro(client);
                 if (now - lastWarpAttempt > WARP_RETRY_MS) {
                     sendPlayerMessage(client, "§3[§bTrident§3] §7Lobby detected, sending /play skyblock");
                     sendServerCommand(client, "play skyblock");
                     lastWarpAttempt = now;
                 }
-            }
-            else if (loc == WorldChecker.Location.TANGLEBURG || loc == WorldChecker.Location.SKYBLOCK_UNKNOWN) {
-                if (macroActive) stopMacro(client);
+            } else if (loc == WorldChecker.Location.TANGLEBURG || loc == WorldChecker.Location.SKYBLOCK_UNKNOWN) {
+                if (macroActive)
+                    stopMacro(client);
                 if (now - lastWarpAttempt > WARP_RETRY_MS) {
                     sendPlayerMessage(client, "§3[§bTrident§3] §7Wrong zone (" + loc + "), retrying /warp murk");
                     sendServerCommand(client, "warp murk");
                     lastWarpAttempt = now;
                 }
-            }
-            else if (loc == WorldChecker.Location.MURKWATER) {
+            } else if (loc == WorldChecker.Location.MURKWATER) {
                 // Correct zone — start macro if not already running
                 if (!macroActive && !commandsSent) {
                     int pickles = CameraManager.countSeaPicklesInArea();
-                    sendPlayerMessage(client,"§3[§bTrident§3] §7Sea Pickles Found: " + pickles);
-                    if(pickles < CameraManager.pickleamount){
+                    sendPlayerMessage(client, "§3[§bTrident§3] §7Sea Pickles Found: " + pickles);
+                    if (pickles < CameraManager.pickleamount) {
 
                         stopMacro(client);
                         commandsSent = true;
@@ -291,11 +303,10 @@ public class TridentLoader implements ClientModInitializer {
                         sendServerCommand(client, "is");
                         WorldChecker.reset(); // force re-confirmation after warp
                         lastWarpAttempt = now;
-                    }else{
+                    } else {
                         sendPlayerMessage(client, "§3[§bTrident§3] §7In Murkwater, starting macro");
                         startMacro(client);
                     }
-
 
                 }
 
@@ -315,9 +326,9 @@ public class TridentLoader implements ClientModInitializer {
                     sendServerCommand(client, "is");
                     lastWarpAttempt = now;
                 }
-            }
-            else if (loc == WorldChecker.Location.YOUR_ISLAND) {
-                if (macroActive) stopMacro(client);
+            } else if (loc == WorldChecker.Location.YOUR_ISLAND) {
+                if (macroActive)
+                    stopMacro(client);
                 commandsSent = true;
 
                 if (!onIsland) {
@@ -349,7 +360,8 @@ public class TridentLoader implements ClientModInitializer {
 
                 // Drop lumies if needed (only without bazaarmod)
                 if (!bazaarLoaded && countSeaLumies(client.player) >= 500) {
-                    if (DoneDropping) DoneDropping = false;
+                    if (DoneDropping)
+                        DoneDropping = false;
                     if (!DoneDropping) {
                         dropSeaLumies(client);
                         CameraManager.tick();
@@ -358,7 +370,8 @@ public class TridentLoader implements ClientModInitializer {
                 }
 
                 // Ready to leave — but wait at least 5s AND for relist to be done
-                boolean relistDone = !bazaarLoaded || (!relistInProgress && (relistCooldownTicks > 0 || timeOnIsland >= 5_000));
+                boolean relistDone = !bazaarLoaded
+                        || (!relistInProgress && (relistCooldownTicks > 0 || timeOnIsland >= 5_000));
                 if (DoneDropping && relistDone) {
                     if (now - lastWarpAttempt > WARP_RETRY_MS) {
                         onIsland = false;
@@ -379,7 +392,8 @@ public class TridentLoader implements ClientModInitializer {
             CameraManager.updateViewSmooth(1.0F);
 
             MinecraftClient client = MinecraftClient.getInstance();
-            if (client.player == null || client.world == null) return;
+            if (client.player == null || client.world == null)
+                return;
 
             Camera camera = client.gameRenderer.getCamera();
             Vec3d cameraPos = camera.getCameraPos();
@@ -416,7 +430,8 @@ public class TridentLoader implements ClientModInitializer {
     }
 
     private static void checkPlayersOnce(MinecraftClient client) {
-        if (client.world == null) return;
+        if (client.world == null)
+            return;
         for (PlayerEntity player : client.world.getPlayers()) {
             String playerName = player.getName().getString();
             if (TARGET_PLAYERS.contains(playerName)) {
@@ -441,8 +456,10 @@ public class TridentLoader implements ClientModInitializer {
     }
 
     private void dropSeaLumies(MinecraftClient client) {
-        if (client.player == null || client.interactionManager == null) return;
-        if (droppingInProgress) return;
+        if (client.player == null || client.interactionManager == null)
+            return;
+        if (droppingInProgress)
+            return;
         droppingInProgress = true;
         dropIndex = 0;
         client.execute(() -> client.setScreen(new InventoryScreen(client.player)));
@@ -461,7 +478,8 @@ public class TridentLoader implements ClientModInitializer {
         while (dropIndex < inv.size()) {
             ItemStack stack = inv.getStack(dropIndex);
             dropIndex++;
-            if (stack.isEmpty()) continue;
+            if (stack.isEmpty())
+                continue;
             String name = stack.getName().getString().replaceAll("§.", "").trim().toLowerCase(Locale.ROOT);
             if (name.contains("enchanted sea lumies")) {
                 int slotId = dropIndex - 1 < 9 ? 36 + (dropIndex - 1) : (dropIndex - 1);
@@ -470,8 +488,7 @@ public class TridentLoader implements ClientModInitializer {
                         slotId,
                         1,
                         SlotActionType.THROW,
-                        player
-                );
+                        player);
                 CompletableFuture.delayedExecutor(300, TimeUnit.MILLISECONDS)
                         .execute(() -> scheduleNextDrop(client));
                 return;
@@ -500,7 +517,8 @@ public class TridentLoader implements ClientModInitializer {
     }
 
     private void stopMacro(MinecraftClient client) {
-        if (!macroActive) return;
+        if (!macroActive)
+            return;
         macroActive = false;
         onIsland = false;
         relistInProgress = false;
@@ -575,7 +593,7 @@ public class TridentLoader implements ClientModInitializer {
     }
 
     private void drawBoxEdges(MatrixStack matrices, VertexConsumer buffer, Box box,
-                              float r, float g, float b, float a) {
+            float r, float g, float b, float a) {
         float x1 = (float) box.minX, y1 = (float) box.minY, z1 = (float) box.minZ;
         float x2 = (float) box.maxX, y2 = (float) box.maxY, z2 = (float) box.maxZ;
 
@@ -596,8 +614,8 @@ public class TridentLoader implements ClientModInitializer {
     }
 
     private void drawLine(MatrixStack matrices, VertexConsumer buffer,
-                          Vec3d start, Vec3d end,
-                          float r, float g, float b, float a) {
+            Vec3d start, Vec3d end,
+            float r, float g, float b, float a) {
         MatrixStack.Entry entry = matrices.peek();
         buffer.vertex(entry.getPositionMatrix(), (float) start.x, (float) start.y, (float) start.z)
                 .color(r, g, b, a)
@@ -610,9 +628,9 @@ public class TridentLoader implements ClientModInitializer {
     }
 
     private void line(MatrixStack matrices, VertexConsumer buffer,
-                      float x1, float y1, float z1,
-                      float x2, float y2, float z2,
-                      float r, float g, float b, float a) {
+            float x1, float y1, float z1,
+            float x2, float y2, float z2,
+            float r, float g, float b, float a) {
         MatrixStack.Entry entry = matrices.peek();
         buffer.vertex(entry.getPositionMatrix(), x1, y1, z1)
                 .color(r, g, b, a)
