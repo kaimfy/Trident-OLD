@@ -83,6 +83,24 @@ public class AutoFishModule {
         }
     }
 
+    public boolean isActive() {
+        return enabled;
+    }
+
+    public void stop() {
+        if (!enabled) return;
+        enabled = false;
+        waitingToRecast = false;
+        pendingReel = false;
+        pendingFlay = false;
+        flaySwapped = false;
+        cachedBobber = null;
+        surfacing = false;
+        if (mc.player != null) {
+            mc.options.jumpKey.setPressed(false);
+        }
+    }
+
     public void tick() {
         if (!enabled || mc.player == null || mc.world == null || mc.interactionManager == null) return;
 

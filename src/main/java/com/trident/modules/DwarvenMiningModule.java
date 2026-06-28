@@ -8,29 +8,60 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
 import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 
 public class DwarvenMiningModule {
     private static final MinecraftClient client = MinecraftClient.getInstance();
+    private static final Random rand = new Random();
 
     private static boolean active = false;
     private static BlockPos currentTarget = null;
     private static Vec3d currentTargetOffset = Vec3d.ZERO;
     private static float targetYaw, targetPitch;
-    private static float rotateSpeed = 0.15f;
+    private static float currentRotateSpeed = 0.12f;
     private static int delayTicks = 0;
     private static boolean isMining = false;
+
+    // ===== Humanization state =====
+    // Sinusoidal jitter
+    private static float jitterPhaseYaw = 0f;
+    private static float jitterPhasePitch = 0f;
+    private static float jitterFreqYaw = 0.08f;
+    private static float jitterFreqPitch = 0.06f;
+    private static float jitterAmpYaw = 0.4f;
+    private static float jitterAmpPitch = 0.3f;
+
+    // Micro-pause
+    private static int microPauseTicks = 0;
+
+    // Look-around
+    private static int lookAroundCooldown = 0;
+    private static int lookAroundTicks = 0;
+    private static float lookAroundYawOffset = 0f;
+    private static float lookAroundPitchOffset = 0f;
+    private static boolean isLookingAround = false;
+
+    // Walking variation
+    private static int strafeChangeTicks = 0;
+    private static boolean strafeLeft = false;
+    private static boolean strafeRight = false;
+
+    // Anti-pattern: track recent delays
+    private static final int DELAY_HISTORY_SIZE = 8;
+    private static final int[] delayHistory = new int[DELAY_HISTORY_SIZE];
+    private static int delayHistoryIndex = 0;
+
+    // Tick counter for look-around timing
+    private static int totalActiveTicks = 0;
 
     private static final Set<Block> MITHRIL_BLOCKS = Set.of(
             Blocks.PRISMARINE,
@@ -65,6 +96,39 @@ public class DwarvenMiningModule {
                 return;
             }
 
+            totalActiveTicks++;
+            MacroConfig config = MacroConfig.get();
+
+            // ===== Micro-pause check =====
+            if (microPauseTicks > 0) {
+                microPauseTicks--;
+                mc.options.attackKey.setPressed(false);
+                mc.options.forwardKey.setPressed(false);
+                mc.options.jumpKey.setPressed(false);
+                mc.options.leftKey.setPressed(false);
+                mc.options.rightKey.setPressed(false);
+                return;
+            }
+
+            // Random micro-pause trigger (only when idle/between targets)
+            if (currentTarget == null && rand.nextFloat() < config.dwarvenMicroPauseChance * 0.05f) {
+                microPauseTicks = 10 + rand.nextInt(20); // 10-30 ticks pause
+                return;
+            }
+
+            // ===== Look-around behavior =====
+            if (config.dwarvenLookAround && !isLookingAround) {
+                lookAroundCooldown--;
+                if (lookAroundCooldown <= 0 && currentTarget == null) {
+                    startLookAround();
+                }
+            }
+
+            if (isLookingAround) {
+                tickLookAround(mc.player);
+                return; // Don't mine while looking around
+            }
+
             if (delayTicks > 0) {
                 delayTicks--;
                 return;
@@ -78,30 +142,44 @@ public class DwarvenMiningModule {
                     mc.options.attackKey.setPressed(false);
                     mc.options.forwardKey.setPressed(false);
                     mc.options.jumpKey.setPressed(false);
+                    mc.options.leftKey.setPressed(false);
+                    mc.options.rightKey.setPressed(false);
                     currentTarget = null;
                     isMining = false;
-                    delayTicks = 2 + (int) (Math.random() * 5); // wait a random bit before next block
+                    strafeLeft = false;
+                    strafeRight = false;
+
+                    // Gaussian delay with anti-pattern
+                    int delay = gaussianDelay(config.dwarvenDelayMean, config.dwarvenDelayStddev, 3, 25);
+                    delay = applyAntiPattern(delay);
+                    delayTicks = delay;
                     return;
                 }
             }
 
             // Find new target if we don't have one
             if (currentTarget == null) {
-                currentTarget = findNextTarget(mc.player);
+                currentTarget = findNextTarget(mc.player, config);
                 if (currentTarget == null) {
                     // No blocks found, just wait
                     mc.options.attackKey.setPressed(false);
                     mc.options.forwardKey.setPressed(false);
                     mc.options.jumpKey.setPressed(false);
+                    mc.options.leftKey.setPressed(false);
+                    mc.options.rightKey.setPressed(false);
                     return;
                 }
-                currentTargetOffset = new Vec3d((Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6,
-                        (Math.random() - 0.5) * 0.6);
+                // Generate random aim point on the block face (not always center)
+                currentTargetOffset = randomBlockFaceOffset();
+                // Generate new rotation speed for this target (Gaussian)
+                currentRotateSpeed = gaussianFloat(config.dwarvenRotationSpeedMean, 0.04f, 0.06f, 0.25f);
+                // Regenerate jitter parameters
+                regenerateJitter();
             }
 
             updateTargetAngles();
 
-            // Look at target smoothly
+            // Look at target smoothly (with jitter)
             updateViewSmooth(1.0f);
 
             double distance = mc.player.getEyePos().distanceTo(Vec3d.ofCenter(currentTarget));
@@ -118,6 +196,9 @@ public class DwarvenMiningModule {
                     mc.options.forwardKey.setPressed(false);
                 }
 
+                // Walking variation: random strafing
+                tickWalkingVariation(mc);
+
                 // Jump if colliding horizontally
                 if (mc.player.horizontalCollision) {
                     mc.options.jumpKey.setPressed(true);
@@ -128,6 +209,10 @@ public class DwarvenMiningModule {
                 // Stop walking and start mining
                 mc.options.forwardKey.setPressed(false);
                 mc.options.jumpKey.setPressed(false);
+                mc.options.leftKey.setPressed(false);
+                mc.options.rightKey.setPressed(false);
+                strafeLeft = false;
+                strafeRight = false;
 
                 float yawDiff = MathHelper.wrapDegrees(mc.player.getYaw() - targetYaw);
                 float pitchDiff = MathHelper.wrapDegrees(mc.player.getPitch() - targetPitch);
@@ -140,8 +225,68 @@ public class DwarvenMiningModule {
         });
     }
 
-    private static BlockPos findNextTarget(ClientPlayerEntity player) {
-        MacroConfig config = MacroConfig.get();
+    // ===== Gaussian/Random Helpers =====
+
+    private static int gaussianDelay(float mean, float stddev, int min, int max) {
+        int delay = (int) Math.round(mean + rand.nextGaussian() * stddev);
+        return Math.max(min, Math.min(max, delay));
+    }
+
+    private static float gaussianFloat(float mean, float stddev, float min, float max) {
+        float val = (float) (mean + rand.nextGaussian() * stddev);
+        return Math.max(min, Math.min(max, val));
+    }
+
+    /**
+     * Anti-pattern: if recent delays are too similar, inject extra variance.
+     */
+    private static int applyAntiPattern(int delay) {
+        delayHistory[delayHistoryIndex % DELAY_HISTORY_SIZE] = delay;
+        delayHistoryIndex++;
+
+        if (delayHistoryIndex >= DELAY_HISTORY_SIZE) {
+            // Check if last N delays have low variance
+            float sum = 0, sumSq = 0;
+            for (int d : delayHistory) {
+                sum += d;
+                sumSq += d * d;
+            }
+            float mean = sum / DELAY_HISTORY_SIZE;
+            float variance = (sumSq / DELAY_HISTORY_SIZE) - (mean * mean);
+
+            if (variance < 2.0f) {
+                // Too uniform — inject a big deviation
+                int extraDelay = 8 + rand.nextInt(15);
+                delay += extraDelay;
+            }
+        }
+        return delay;
+    }
+
+    /**
+     * Generate a random offset on a random face of the block (not always center).
+     */
+    private static Vec3d randomBlockFaceOffset() {
+        float spread = 0.35f;
+        return new Vec3d(
+                (rand.nextFloat() - 0.5f) * spread * 2,
+                (rand.nextFloat() - 0.5f) * spread * 2,
+                (rand.nextFloat() - 0.5f) * spread * 2
+        );
+    }
+
+    private static void regenerateJitter() {
+        jitterFreqYaw = 0.05f + rand.nextFloat() * 0.10f;
+        jitterFreqPitch = 0.04f + rand.nextFloat() * 0.08f;
+        jitterAmpYaw = 0.2f + rand.nextFloat() * 0.6f;
+        jitterAmpPitch = 0.15f + rand.nextFloat() * 0.5f;
+        jitterPhaseYaw = rand.nextFloat() * (float) (2 * Math.PI);
+        jitterPhasePitch = rand.nextFloat() * (float) (2 * Math.PI);
+    }
+
+    // ===== Target Finding with Imperfect Selection =====
+
+    private static BlockPos findNextTarget(ClientPlayerEntity player, MacroConfig config) {
         Vec3d eyePos = player.getEyePos();
         double radius = 15.0;
         int minX = (int) Math.floor(eyePos.x - radius);
@@ -186,8 +331,18 @@ public class DwarvenMiningModule {
             return Double.compare(d1, d2);
         });
 
+        // Imperfect selection: 15% chance to skip the nearest and pick 2nd or 3rd
+        if (candidates.size() >= 3 && rand.nextFloat() < 0.15f) {
+            return candidates.get(1 + rand.nextInt(Math.min(2, candidates.size() - 1)));
+        }
+        if (candidates.size() >= 2 && rand.nextFloat() < 0.10f) {
+            return candidates.get(1);
+        }
+
         return candidates.get(0);
     }
+
+    // ===== Rotation =====
 
     private static void updateTargetAngles() {
         ClientPlayerEntity player = client.player;
@@ -213,20 +368,92 @@ public class DwarvenMiningModule {
             return;
         ClientPlayerEntity player = client.player;
 
-        float speed = rotateSpeed * (0.8f + (float) Math.random() * 0.4f);
+        // Variable speed with slight randomness per frame
+        float speed = currentRotateSpeed * (0.85f + rand.nextFloat() * 0.30f);
 
         float currentYaw = MathHelper.lerpAngleDegrees(speed * delta, player.getYaw(), targetYaw);
         float currentPitch = MathHelper.lerpAngleDegrees(speed * delta, player.getPitch(), targetPitch);
 
+        // Sinusoidal jitter (smooth, not random per-tick noise)
         if (isMining) {
-            currentYaw += (float) ((Math.random() - 0.5) * 0.3);
-            currentPitch += (float) ((Math.random() - 0.5) * 0.3);
+            jitterPhaseYaw += jitterFreqYaw;
+            jitterPhasePitch += jitterFreqPitch;
+            currentYaw += (float) Math.sin(jitterPhaseYaw) * jitterAmpYaw;
+            currentPitch += (float) Math.sin(jitterPhasePitch) * jitterAmpPitch;
         }
 
         player.setYaw(currentYaw);
         player.setPitch(currentPitch);
         FailsafeManager.updateExpectedRotation(currentYaw, currentPitch);
     }
+
+    // ===== Look-Around Behavior =====
+
+    private static void startLookAround() {
+        isLookingAround = true;
+        lookAroundTicks = 30 + rand.nextInt(30); // 30-60 ticks
+        lookAroundYawOffset = (rand.nextFloat() - 0.5f) * 60f; // ±30 degrees
+        lookAroundPitchOffset = (rand.nextFloat() - 0.5f) * 20f; // ±10 degrees
+    }
+
+    private static void tickLookAround(ClientPlayerEntity player) {
+        if (player == null) return;
+        lookAroundTicks--;
+
+        float progress = 1.0f - ((float) lookAroundTicks / 60f);
+        // Smooth ease: pan out then back
+        float easedYaw, easedPitch;
+        if (progress < 0.5f) {
+            // Pan out
+            float t = progress * 2f;
+            easedYaw = lookAroundYawOffset * smoothStep(t);
+            easedPitch = lookAroundPitchOffset * smoothStep(t);
+        } else {
+            // Pan back
+            float t = (progress - 0.5f) * 2f;
+            easedYaw = lookAroundYawOffset * (1f - smoothStep(t));
+            easedPitch = lookAroundPitchOffset * (1f - smoothStep(t));
+        }
+
+        float baseYaw = player.getYaw();
+        float basePitch = player.getPitch();
+        player.setYaw(baseYaw + easedYaw * 0.05f);
+        player.setPitch(basePitch + easedPitch * 0.05f);
+        FailsafeManager.updateExpectedRotation(player.getYaw(), player.getPitch());
+
+        if (lookAroundTicks <= 0) {
+            isLookingAround = false;
+            lookAroundCooldown = 200 + rand.nextInt(200); // 200-400 ticks until next
+        }
+    }
+
+    private static float smoothStep(float t) {
+        return t * t * (3f - 2f * t);
+    }
+
+    // ===== Walking Variation =====
+
+    private static void tickWalkingVariation(MinecraftClient mc) {
+        strafeChangeTicks--;
+        if (strafeChangeTicks <= 0) {
+            strafeChangeTicks = 10 + rand.nextInt(20); // change strafe every 10-30 ticks
+            float r = rand.nextFloat();
+            if (r < 0.3f) {
+                strafeLeft = true;
+                strafeRight = false;
+            } else if (r < 0.6f) {
+                strafeLeft = false;
+                strafeRight = true;
+            } else {
+                strafeLeft = false;
+                strafeRight = false;
+            }
+        }
+        mc.options.leftKey.setPressed(strafeLeft);
+        mc.options.rightKey.setPressed(strafeRight);
+    }
+
+    // ===== Toggle / Start / Stop =====
 
     public static void toggle() {
         if (active) {
@@ -242,6 +469,13 @@ public class DwarvenMiningModule {
         active = true;
         currentTarget = null;
         isMining = false;
+        totalActiveTicks = 0;
+        microPauseTicks = 0;
+        isLookingAround = false;
+        lookAroundCooldown = 200 + rand.nextInt(200);
+        delayHistoryIndex = 0;
+        strafeLeft = false;
+        strafeRight = false;
         client.player.sendMessage(Text.literal("§3[§bTrident§3] §aDwarven Mining Macro Started!"), false);
     }
 
@@ -251,11 +485,16 @@ public class DwarvenMiningModule {
         active = false;
         currentTarget = null;
         isMining = false;
+        isLookingAround = false;
+        strafeLeft = false;
+        strafeRight = false;
         if (client.player != null) {
             client.player.sendMessage(Text.literal("§3[§bTrident§3] §cDwarven Mining Macro Stopped!"), false);
             client.options.attackKey.setPressed(false);
             client.options.forwardKey.setPressed(false);
             client.options.jumpKey.setPressed(false);
+            client.options.leftKey.setPressed(false);
+            client.options.rightKey.setPressed(false);
         }
     }
 

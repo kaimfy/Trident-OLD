@@ -15,10 +15,29 @@ public class MacroConfig {
     // ===== Dwarven Mining Config =====
     public boolean dwarvenMiningToggle = false;
     public boolean dwarvenPrioritizeTitanium = true;
+    // Dwarven Mining Humanization
+    public float dwarvenRotationSpeedMean = 0.12f;
+    public float dwarvenDelayMean = 8f;
+    public float dwarvenDelayStddev = 4f;
+    public boolean dwarvenLookAround = true;
+    public float dwarvenMicroPauseChance = 0.08f;
 
     // ===== Failsafe Config =====
     public boolean failsafeEnabled = true;
     public String failsafeAction = "WARN"; // WARN, WARP, DISCONNECT
+    // Failsafe Reactions
+    public boolean failsafeReactNaturally = true;
+    public boolean failsafeSendChat = false;
+    public boolean failsafeTeleportDetect = true;
+    public boolean failsafeInventoryDetect = true;
+    public boolean failsafeRotationSnapDetect = true;
+    public int failsafeReactionDurationTicks = 60;
+
+    // ===== Discord Integration =====
+    public String discordApiBase = "https://tridentclient.xyz/api/mc";
+    public boolean discordEnabled = true;
+    public int discordPingIntervalSeconds = 600;
+    public int discordPollIntervalSeconds = 5;
 
     // ===== Lifetime Stats =====
     public long lifetimeCoins = 0;

@@ -19,6 +19,11 @@ public class MobActionModule {
     private static LivingEntity currentTarget = null;
     public static boolean isOn = false;
 
+    public static void stop() {
+        isOn = false;
+        currentTarget = null;
+    }
+
     public static void onTick() {
         if (client.player == null || client.world == null) return;
 
