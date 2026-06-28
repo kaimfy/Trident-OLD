@@ -16,6 +16,7 @@ import java.net.http.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+@SuppressWarnings("null")
 public class DiscordIntegration implements ClientModInitializer {
 
     private static final HttpClient http = HttpClient.newBuilder()

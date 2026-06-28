@@ -1,7 +1,6 @@
 package com.trident.modules;
 
 import com.trident.config.MacroConfig;
-import com.trident.core.TridentLoader;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.block.Block;
@@ -22,13 +21,12 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 
+@SuppressWarnings("null")
 public class FailsafeManager {
     private static final MinecraftClient client = MinecraftClient.getInstance();
     private static final Random rand = new Random();
 
     // Rotation tracking
-    private static float lastYaw = 0;
-    private static float lastPitch = 0;
     private static float expectedYaw = 0;
     private static float expectedPitch = 0;
     private static int safeTicks = 0;
@@ -84,8 +82,8 @@ public class FailsafeManager {
             // Only run failsafes if any macro is active
             if (!isAnyMacroActive()) {
                 safeTicks = 0;
-                lastYaw = mc.player.getYaw();
-                lastPitch = mc.player.getPitch();
+                expectedYaw = mc.player.getYaw();
+                expectedPitch = mc.player.getPitch();
                 lastPosition = new Vec3d(mc.player.getX(), mc.player.getY(), mc.player.getZ());
                 snapshotHotbar(mc.player);
                 return;
@@ -110,8 +108,8 @@ public class FailsafeManager {
             checkEntitySpawn(mc.player);
 
             // Update tracking state
-            lastYaw = mc.player.getYaw();
-            lastPitch = mc.player.getPitch();
+            expectedYaw = mc.player.getYaw();
+            expectedPitch = mc.player.getPitch();
             lastPosition = new Vec3d(mc.player.getX(), mc.player.getY(), mc.player.getZ());
             snapshotHotbar(mc.player);
         });
@@ -389,8 +387,6 @@ public class FailsafeManager {
     public static void updateExpectedRotation(float yaw, float pitch) {
         expectedYaw = yaw;
         expectedPitch = pitch;
-        lastYaw = yaw;
-        lastPitch = pitch;
     }
 
     public static boolean isReacting() {

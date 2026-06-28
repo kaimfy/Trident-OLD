@@ -14,6 +14,7 @@ import net.minecraft.text.Text;
  * Expected JSON format:
  * { "command": "COMMAND_TYPE", "args": "optional_args" }
  */
+@SuppressWarnings("null")
 public class DiscordCommandHandler {
 
     private static final MinecraftClient client = MinecraftClient.getInstance();

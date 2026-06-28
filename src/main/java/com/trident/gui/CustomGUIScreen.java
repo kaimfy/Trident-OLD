@@ -275,7 +275,6 @@ public class CustomGUIScreen extends Screen {
         int controlsStartX = panelX + sidebarWidth + 16;
         int controlsAreaTop = currentPanelY + 16;
         int controlsAreaBottom = currentPanelY + fullPanelHeight - 8;
-        int controlsAreaWidth = fullPanelWidth - sidebarWidth - 32;
 
         // Section title
         int sectionTitleColor = (alphaInt << 24) | 0x3399FF;
