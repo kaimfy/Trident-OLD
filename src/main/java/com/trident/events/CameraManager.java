@@ -42,7 +42,8 @@ public class CameraManager {
         } else if (!targetPositions.isEmpty()) {
             tickstuckCounter = 0;
             BlockPos next = targetPositions.remove(0);
-            if (next == null) return;
+            if (next == null)
+                return;
             boolean isInWater = client.player != null && client.player.isTouchingWater();
             currentTarget = isInWater ? next : next.up();
             targetOffset = randomOffset();
@@ -76,24 +77,26 @@ public class CameraManager {
     }
 
     public static void addTarget(BlockPos pos) {
-        if (pos != null) targetPositions.add(pos);
+        if (pos != null)
+            targetPositions.add(pos);
     }
 
     public static void addsave(BlockPos pos) {
-        if (pos != null) savePosition.add(pos);
+        if (pos != null)
+            savePosition.add(pos);
     }
 
     private static Vec3d randomOffset() {
         return new Vec3d(
                 (Math.random() - 0.5) * 2 * targetMargin,
                 (Math.random() - 0.5) * 2 * targetMargin,
-                (Math.random() - 0.5) * 2 * targetMargin
-        );
+                (Math.random() - 0.5) * 2 * targetMargin);
     }
 
     private static void updateTargetAngles() {
         ClientPlayerEntity player = client.player;
-        if (player == null || currentTarget == null) return;
+        if (player == null || currentTarget == null)
+            return;
         Vec3d playerPos = player.getEyePos();
         Vec3d targetCenter = Vec3d.ofCenter(currentTarget).add(targetOffset);
         Vec3d targetVec = targetCenter.subtract(playerPos);
@@ -114,7 +117,8 @@ public class CameraManager {
     }
 
     public static void tick() {
-        if (client.player == null || !active || currentTarget == null) return;
+        if (client.player == null || !active || currentTarget == null)
+            return;
 
         Screen screen = client.currentScreen;
         if (screen != null && screen.shouldPause()) {
@@ -142,10 +146,12 @@ public class CameraManager {
             return;
         }
 
-        if (currentTarget == null) return;
+        if (currentTarget == null)
+            return;
 
         ClientPlayerEntity player = client.player;
-        if (player == null) return;
+        if (player == null)
+            return;
         Vec3d playerEyePos = player.getEyePos();
         Vec3d targetCenter = safeVec(currentTarget).add(targetOffset);
 
@@ -156,10 +162,13 @@ public class CameraManager {
 
         boolean isInWater = player.isTouchingWater();
 
-        if (isInWater) handleWaterMovement(playerEyePos, targetCenter);
-        else handleLandMovement(distXZ, dy);
+        if (isInWater)
+            handleWaterMovement(playerEyePos, targetCenter);
+        else
+            handleLandMovement(distXZ, dy);
 
-        if (distXZ < reachDistance + targetMargin && dy < 1.5) nextTarget();
+        if (distXZ < reachDistance + targetMargin && dy < 1.5)
+            nextTarget();
 
         wasInWater = isInWater;
     }
@@ -167,9 +176,8 @@ public class CameraManager {
     private static void handleWaterMovement(Vec3d playerEyePos, Vec3d targetCenter) {
         ClientPlayerEntity player = client.player;
 
-
-
-        if (player == null) return;
+        if (player == null)
+            return;
         if (player.isOnGround()) {
             sneakdelay = 5;
             client.options.jumpKey.setPressed(false);
@@ -215,12 +223,14 @@ public class CameraManager {
 
     private static void handleLandMovement(double distXZ, double dy) {
         ClientPlayerEntity player = client.player;
-        if (player == null) return;
+        if (player == null)
+            return;
         client.options.sneakKey.setPressed(false);
 
         if (!player.isSprinting() && player.isOnGround() && firstblock) {
             client.options.jumpKey.setPressed(true);
-        } else client.options.jumpKey.setPressed(false);
+        } else
+            client.options.jumpKey.setPressed(false);
 
         if (wasInWater || distXZ > 0.5) {
             client.options.forwardKey.setPressed(true);
@@ -229,7 +239,8 @@ public class CameraManager {
     }
 
     public static int countSeaPicklesInArea() {
-        if (client.world == null) return 0;
+        if (client.world == null)
+            return 0;
 
         int count = 0;
         int minX = -680, maxX = -610;
@@ -278,7 +289,8 @@ public class CameraManager {
     }
 
     private static Vec3d safeVec(BlockPos pos) {
-        if (pos == null) return Vec3d.ZERO;
+        if (pos == null)
+            return Vec3d.ZERO;
         return Vec3d.ofCenter(pos);
     }
 
@@ -287,10 +299,12 @@ public class CameraManager {
     }
 
     public static void updateViewSmooth(float delta) {
-        if (!active || client.player == null || currentTarget == null) return;
+        if (!active || client.player == null || currentTarget == null)
+            return;
 
         ClientPlayerEntity player = client.player;
-        if (player == null) return;
+        if (player == null)
+            return;
         updateTargetAngles();
 
         float speed = player.isTouchingWater() ? rotateSpeed * 1.5f : rotateSpeed;
@@ -324,7 +338,8 @@ public class CameraManager {
                 savePosition.set(point, player.getBlockPos());
                 TridentLoader.getInstance().editblockpoint(point);
             }
-        } else sendMessage("§3[§bTrident§3] §7Point #" + (point + 1) + " is not valid");
+        } else
+            sendMessage("§3[§bTrident§3] §7Point #" + (point + 1) + " is not valid");
     }
 
     public static void removePoint(int point) {
@@ -336,7 +351,8 @@ public class CameraManager {
                 savePosition.remove(point);
                 TridentLoader.getInstance().removeblockpoint(point);
             }
-        } else sendMessage("§3[§bTrident§3] §7Point #" + (point + 1) + " is not valid");
+        } else
+            sendMessage("§3[§bTrident§3] §7Point #" + (point + 1) + " is not valid");
     }
 
     private static void sendMessage(String message) {
