@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import java.io.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MacroConfig {
     public boolean espEnabled = false;
@@ -22,6 +24,25 @@ public class MacroConfig {
     public boolean dwarvenLookAround = true;
     public float dwarvenMicroPauseChance = 0.08f;
 
+    // ===== Foraging Config =====
+    public boolean foragingToggle = false;
+    // Tree type toggles (Fig and Mangrove OFF by default — require higher stats)
+    public boolean foragingOak = true;
+    public boolean foragingSpruce = true;
+    public boolean foragingBirch = true;
+    public boolean foragingJungle = true;
+    public boolean foragingAcacia = true;
+    public boolean foragingDarkOak = true;
+    public boolean foragingMangrove = false;
+    public boolean foragingCherry = true;
+    // Foraging Humanization
+    public float foragingRotationSpeedMean = 0.12f;
+    public float foragingDelayMean = 6f;
+    public float foragingDelayStddev = 3f;
+    public boolean foragingLookAround = true;
+    public float foragingMicroPauseChance = 0.08f;
+    public float foragingScanRadius = 15f;
+
     // ===== Failsafe Config =====
     public boolean failsafeEnabled = true;
     public String failsafeAction = "WARN"; // WARN, WARP, DISCONNECT
@@ -38,6 +59,13 @@ public class MacroConfig {
     public boolean discordEnabled = true;
     public int discordPingIntervalSeconds = 600;
     public int discordPollIntervalSeconds = 5;
+
+    // ===== Auto-Update =====
+    public boolean autoUpdateEnabled = true;
+
+    // ===== Keybind Overrides =====
+    // Maps keybind translation key (e.g. "key.macromod.startmacro") -> GLFW key code
+    public Map<String, Integer> keybindOverrides = new HashMap<>();
 
     // ===== Lifetime Stats =====
     public long lifetimeCoins = 0;
@@ -58,6 +86,10 @@ public class MacroConfig {
         if (configFile.exists()) {
             try (Reader reader = new FileReader(configFile)) {
                 instance = gson.fromJson(reader, MacroConfig.class);
+                // Ensure map is never null after deserialization
+                if (instance.keybindOverrides == null) {
+                    instance.keybindOverrides = new HashMap<>();
+                }
             } catch (IOException e) {
                 e.printStackTrace();
                 instance = new MacroConfig();

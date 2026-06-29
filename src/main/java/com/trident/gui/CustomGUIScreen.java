@@ -4,7 +4,9 @@ import com.trident.config.MacroConfig;
 import com.trident.core.Trident;
 import com.trident.core.TridentLoader;
 import com.trident.events.CameraManager;
+import com.trident.events.KeyHandler;
 import com.trident.modules.DwarvenMiningModule;
+import com.trident.modules.ForagingModule;
 import com.trident.modules.MobActionModule;
 import com.trident.modules.Nuker;
 
@@ -13,6 +15,8 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
@@ -37,8 +41,11 @@ public class CustomGUIScreen extends Screen {
     private int scrollOffset = 0;
     private int maxScrollOffset = 0;
 
+    // Keybind listening state
+    private CustomKeybindButton listeningButton = null;
+
     // Icons for categories
-    private static final String[] CATEGORY_ICONS = {"⛏", "🎣", "⚔", "📦", "🛡", "🌐", "⚙"};
+    private static final String[] CATEGORY_ICONS = {"⛏", "🌲", "🎣", "⚔", "📦", "🛡", "🌐", "⌨", "⚙"};
 
     public CustomGUIScreen() {
         super(Text.literal("Custom GUI"));
@@ -89,7 +96,72 @@ public class CustomGUIScreen extends Screen {
             MacroConfig.save();
         }, "Micro-Pause Chance"));
 
-        // ===== 2. Fishing =====
+        // ===== 2. Foraging =====
+        Sezione foraging = new Sezione("Foraging");
+        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, ForagingModule.isActive(), val -> {
+            if (val) ForagingModule.start();
+            else ForagingModule.stop();
+        }, "Foraging Toggle"));
+        foraging.addControllo(new CustomLabel(0, 0, "--- Tree Types ---"));
+        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingOak, val -> {
+            config.foragingOak = val;
+            MacroConfig.save();
+        }, "Oak"));
+        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingSpruce, val -> {
+            config.foragingSpruce = val;
+            MacroConfig.save();
+        }, "Spruce"));
+        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingBirch, val -> {
+            config.foragingBirch = val;
+            MacroConfig.save();
+        }, "Birch"));
+        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingJungle, val -> {
+            config.foragingJungle = val;
+            MacroConfig.save();
+        }, "Jungle"));
+        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingAcacia, val -> {
+            config.foragingAcacia = val;
+            MacroConfig.save();
+        }, "Acacia"));
+        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingDarkOak, val -> {
+            config.foragingDarkOak = val;
+            MacroConfig.save();
+        }, "Dark Oak"));
+        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingMangrove, val -> {
+            config.foragingMangrove = val;
+            MacroConfig.save();
+        }, "Mangrove (high stats)"));
+        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingCherry, val -> {
+            config.foragingCherry = val;
+            MacroConfig.save();
+        }, "Cherry"));
+        foraging.addControllo(new CustomLabel(0, 0, "--- Humanization ---"));
+        foraging.addControllo(new CustomSlider(0, 0, 150, 12, 0.06f, 0.25f, config.foragingRotationSpeedMean, val -> {
+            config.foragingRotationSpeedMean = val;
+            MacroConfig.save();
+        }, "Rotation Speed"));
+        foraging.addControllo(new CustomSlider(0, 0, 150, 12, 3f, 20f, config.foragingDelayMean, val -> {
+            config.foragingDelayMean = val;
+            MacroConfig.save();
+        }, "Delay Mean (ticks)"));
+        foraging.addControllo(new CustomSlider(0, 0, 150, 12, 1f, 10f, config.foragingDelayStddev, val -> {
+            config.foragingDelayStddev = val;
+            MacroConfig.save();
+        }, "Delay Variance"));
+        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingLookAround, val -> {
+            config.foragingLookAround = val;
+            MacroConfig.save();
+        }, "Look Around"));
+        foraging.addControllo(new CustomSlider(0, 0, 150, 12, 0f, 0.2f, config.foragingMicroPauseChance, val -> {
+            config.foragingMicroPauseChance = val;
+            MacroConfig.save();
+        }, "Micro-Pause Chance"));
+        foraging.addControllo(new CustomSlider(0, 0, 150, 12, 5f, 30f, config.foragingScanRadius, val -> {
+            config.foragingScanRadius = val;
+            MacroConfig.save();
+        }, "Scan Radius"));
+
+        // ===== 3. Fishing =====
         Sezione fishing = new Sezione("Fishing");
         fishing.addControllo(new CustomLabel(0, 0, "AutoFish is toggled via keybind (J)"));
         fishing.addControllo(new CustomLabel(0, 0, "Status is shown in-game when active"));
@@ -171,7 +243,13 @@ public class CustomGUIScreen extends Screen {
             MacroConfig.save();
         }, "Poll Interval (sec)"));
 
-        // ===== 7. General =====
+        // ===== 8. Keybinds =====
+        Sezione keybinds = new Sezione("Keybinds");
+        for (KeyBinding binding : KeyHandler.getAllBindings()) {
+            keybinds.addControllo(new CustomKeybindButton(0, 0, 120, 20, binding));
+        }
+
+        // ===== 9. General =====
         Sezione general = new Sezione("General");
         general.addControllo(new CustomToggleButton(0, 0, 100, 20, config.espEnabled, val -> {
             config.espEnabled = val;
@@ -186,11 +264,13 @@ public class CustomGUIScreen extends Screen {
         general.addControllo(new CustomLabel(0, 0, "Theme: " + Trident.getThemecolor()));
 
         sezioni.add(dwarven);
+        sezioni.add(foraging);
         sezioni.add(fishing);
         sezioni.add(combat);
         sezioni.add(path);
         sezioni.add(failsafe);
         sezioni.add(discord);
+        sezioni.add(keybinds);
         sezioni.add(general);
     }
 
@@ -391,6 +471,19 @@ public class CustomGUIScreen extends Screen {
     public boolean keyPressed(KeyInput keyInput) {
         int keyCode = keyInput.key();
 
+        // Forward to keybind listener if active
+        if (listeningButton != null) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                // Cancel listening
+                listeningButton.cancelListening();
+                listeningButton = null;
+                return true;
+            }
+            listeningButton.captureKey(keyCode);
+            listeningButton = null;
+            return true;
+        }
+
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
             if (this.client != null) this.client.setScreen(null);
             return true;
@@ -528,6 +621,69 @@ public class CustomGUIScreen extends Screen {
                 return true;
             }
             return false;
+        }
+    }
+
+    // ===== Keybind Button =====
+    private class CustomKeybindButton extends Controllo {
+        int width, height;
+        KeyBinding binding;
+        boolean listening = false;
+        String label;
+
+        public CustomKeybindButton(int x, int y, int width, int height, KeyBinding binding) {
+            this.x = x; this.y = y; this.width = width; this.height = height;
+            this.binding = binding;
+            this.label = KeyHandler.getLabel(binding.getId());
+        }
+
+        @Override void render(DrawContext context, int mouseX, int mouseY, float alpha) {
+            int alphaInt = (int) (alpha * 255) & 0xFF;
+            int textColor = (alphaInt << 24) | 0x66CCFF;
+            int labelY = y - 14;
+            context.drawText(MinecraftClient.getInstance().textRenderer, Text.literal(label), x, labelY, textColor, false);
+
+            boolean isHovered = isInside(mouseX, mouseY, width, height);
+            int bgColor = (alphaInt << 24) | (listening ? 0x2A1A3A : 0x1E1E1E);
+            int borderColor = (alphaInt << 24) | (listening ? 0xFF9933 : (isHovered ? 0x3399FF : 0x555555));
+            context.fill(x, y, x + width, y + height, bgColor);
+            context.fill(x, y, x + width, y + 1, borderColor);
+            context.fill(x, y + height - 1, x + width, y + height, borderColor);
+            context.fill(x, y, x + 1, y + height, borderColor);
+            context.fill(x + width - 1, y, x + width, y + height, borderColor);
+
+            String keyName = listening ? "..." : getKeyName();
+            int valueColor = (alphaInt << 24) | (listening ? 0xFF9933 : 0xFFFFFF);
+            int textWidth = MinecraftClient.getInstance().textRenderer.getWidth(Text.literal(keyName));
+            int textX = x + (width / 2) - (textWidth / 2);
+            int textY2 = y + (height / 2) - 4;
+            context.drawText(MinecraftClient.getInstance().textRenderer, Text.literal(keyName), textX, textY2, valueColor, false);
+        }
+
+        private String getKeyName() {
+            return binding.getBoundKeyLocalizedText().getString();
+        }
+
+        @Override boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (isInside(mouseX, mouseY, width, height)) {
+                listening = true;
+                listeningButton = this;
+                return true;
+            }
+            return false;
+        }
+
+        void captureKey(int keyCode) {
+            binding.setBoundKey(InputUtil.Type.KEYSYM.createFromCode(keyCode));
+            KeyBinding.updateKeysByCode();
+            MacroConfig config = MacroConfig.get();
+            config.keybindOverrides.put(binding.getId(), keyCode);
+            MacroConfig.save();
+            listening = false;
+        }
+
+        void cancelListening() {
+            listening = false;
         }
     }
 

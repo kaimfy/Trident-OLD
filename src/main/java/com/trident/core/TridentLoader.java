@@ -11,6 +11,7 @@ import com.trident.gui.SeaLumiesHUD;
 import com.trident.modules.AutoFishModule;
 import com.trident.modules.DwarvenMiningModule;
 import com.trident.modules.FailsafeManager;
+import com.trident.modules.ForagingModule;
 import com.trident.modules.MobActionModule;
 import com.trident.modules.Nuker;
 import com.trident.network.BazaarPriceFetcher;
@@ -120,6 +121,7 @@ public class TridentLoader implements ClientModInitializer {
         AutoJoinHypixel.init();
         Nuker.init();
         DwarvenMiningModule.init();
+        ForagingModule.init();
         FailsafeManager.init();
         BazaarPriceFetcher.fetchPriceAsync();
         ApplicaConfigurazioni();

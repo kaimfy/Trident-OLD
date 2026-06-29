@@ -9,6 +9,8 @@ public class WorldChecker {
         MURKWATER,
         YOUR_ISLAND,
         TANGLEBURG,
+        PARK,
+        GALATEA,
         SKYBLOCK_UNKNOWN,
         LOBBY,
         LIMBO
@@ -88,6 +90,8 @@ public class WorldChecker {
             if (line.contains("your island")) return Location.YOUR_ISLAND;
             if (line.contains("tangleburg")) return Location.TANGLEBURG;
             if (line.contains("village")) return Location.TANGLEBURG;
+            if (line.contains("the park") || line.contains("⏣ park")) return Location.PARK;
+            if (line.contains("galatea")) return Location.GALATEA;
         }
 
         return null;
@@ -101,6 +105,10 @@ public class WorldChecker {
 
     public static Location getLocation() {
         return currentLocation;
+    }
+
+    public static boolean isForagingZone() {
+        return currentLocation == Location.PARK || currentLocation == Location.GALATEA;
     }
 
     public static void reset() {

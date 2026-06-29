@@ -1,6 +1,7 @@
 package com.trident.core;
 
 import com.trident.events.WhitelistChecker;
+import com.trident.network.AutoUpdater;
 
 import net.fabricmc.api.ModInitializer;
 
@@ -19,6 +20,7 @@ import java.security.SecureRandom;
 
 public class Trident implements ModInitializer {
 	public static final String MOD_ID = "trident";
+	public static final String MOD_VERSION = "1.0.0";
 
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 	private static String themecolor = "purple";
@@ -33,6 +35,10 @@ public class Trident implements ModInitializer {
 			return;
 		}
 		setThemecolor();
+
+		// Auto-update: clean old jar, then check for new version
+		AutoUpdater.cleanupOldJar();
+		AutoUpdater.checkAsync();
 
 		MinecraftClient mcclient = MinecraftClient.getInstance();
 		mcclient.execute(() -> {
