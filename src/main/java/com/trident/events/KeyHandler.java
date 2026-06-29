@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@SuppressWarnings("null")
 public class KeyHandler {
         private static final KeyBinding.Category MACRO_CATEGORY = KeyBinding.Category.create(Identifier.of("macromod"));
         public static KeyBinding savecoord, startmacro, clearall, menu, custommenu, fish, shardkill, dwarvenMacro, foragingMacro;

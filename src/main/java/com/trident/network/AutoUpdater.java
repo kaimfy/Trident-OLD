@@ -18,6 +18,7 @@ import java.nio.file.*;
  * Auto-updater that checks tridentclient.xyz for new mod versions.
  * Downloads the updated JAR and stages it for next restart.
  */
+@SuppressWarnings("null")
 public class AutoUpdater {
 
     private static final String UPDATE_URL = "https://tridentclient.xyz/api/update";

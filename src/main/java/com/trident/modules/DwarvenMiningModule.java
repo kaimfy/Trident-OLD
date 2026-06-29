@@ -9,9 +9,12 @@ import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -218,8 +221,27 @@ public class DwarvenMiningModule {
                 float pitchDiff = MathHelper.wrapDegrees(mc.player.getPitch() - targetPitch);
 
                 if (Math.abs(yawDiff) < 5.0f && Math.abs(pitchDiff) < 5.0f) {
-                    mc.options.attackKey.setPressed(true);
-                    isMining = true;
+                    boolean lookingAtValid = false;
+                    if (mc.crosshairTarget != null && mc.crosshairTarget.getType() == HitResult.Type.BLOCK) {
+                        BlockPos hitPos = ((BlockHitResult) mc.crosshairTarget).getBlockPos();
+                        Block hitBlock = mc.world.getBlockState(hitPos).getBlock();
+                        if (MITHRIL_BLOCKS.contains(hitBlock) || TITANIUM_BLOCKS.contains(hitBlock)) {
+                            lookingAtValid = true;
+                        }
+                    }
+
+                    if (lookingAtValid) {
+                        mc.options.attackKey.setPressed(true);
+                        isMining = true;
+                    } else {
+                        mc.options.attackKey.setPressed(false);
+                        isMining = false;
+                        
+                        // If we've reached the target angles but crosshair isn't on a valid block,
+                        // it's obscured by an entity or another block. Pick a new target.
+                        currentTarget = null;
+                        delayTicks = 5;
+                    }
                 }
             }
         });
@@ -307,7 +329,18 @@ public class DwarvenMiningModule {
 
                     if ((MITHRIL_BLOCKS.contains(block) || TITANIUM_BLOCKS.contains(block)) &&
                             eyePos.distanceTo(Vec3d.ofCenter(pos)) <= radius) {
-                        candidates.add(pos);
+                        
+                        RaycastContext context = new RaycastContext(
+                                eyePos,
+                                Vec3d.ofCenter(pos),
+                                RaycastContext.ShapeType.COLLIDER,
+                                RaycastContext.FluidHandling.NONE,
+                                player
+                        );
+                        BlockHitResult hit = client.world.raycast(context);
+                        if (hit != null && hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(pos)) {
+                            candidates.add(pos);
+                        }
                     }
                 }
             }
