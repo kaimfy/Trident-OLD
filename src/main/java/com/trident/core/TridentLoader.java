@@ -111,7 +111,7 @@ public class TridentLoader implements ClientModInitializer {
     public void onInitializeClient() {
         bazaarLoaded = FabricLoader.getInstance().isModLoaded("bazaarmod");
 
-        if (false) {
+        if (!Trident.access) {
             ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
                 if (!joinedServer) {
                     joinedServer = true;
