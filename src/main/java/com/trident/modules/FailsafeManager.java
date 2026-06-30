@@ -54,7 +54,7 @@ public class FailsafeManager {
             "admin", "moderator", "has messaged you", "banned",
             "are you there", "hello?", "afk check", "afk?",
             "are you botting", "are you macroing", "staff",
-            "suspicious", "warning", "macro", "macroer", "macroing",
+            "suspicious", "warning", "macroer", "macroing",
             "cheating", "cheater", "macros", "report", "reported"
     };
 
@@ -117,13 +117,18 @@ public class FailsafeManager {
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             if (overlay)
                 return;
+
+            String rawText = message.getString().toLowerCase(Locale.ROOT);
+            // Prevent infinite feedback loop from our own messages
+            if (rawText.contains("[trident") || rawText.contains("[trident failsafe]"))
+                return;
+
             MacroConfig config = MacroConfig.get();
             if (!config.failsafeEnabled || !isAnyMacroActive())
                 return;
 
-            String text = message.getString().toLowerCase(Locale.ROOT);
             for (String pattern : SUSPICIOUS_CHAT_PATTERNS) {
-                if (text.contains(pattern)) {
+                if (rawText.contains(pattern)) {
                     triggerFailsafe("Suspicious chat: \"" + pattern + "\"");
                     return;
                 }

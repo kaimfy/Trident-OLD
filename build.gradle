@@ -79,13 +79,4 @@ publishing {
 	repositories {
 
 	}
-}
-task obfuscate(type: proguard.gradle.ProGuardTask, dependsOn: remapJar) {
-	injars  remapJar.archiveFile
-	outjars "${layout.buildDirectory.get()}/libs/${project.base.archivesName.get()}-obfuscated.jar"
-	libraryjars "${System.getProperty('java.home')}/jmods"
-	dontshrink
-	dontoptimize
-	configuration 'proguard.cfg'
-	printmapping "build/obfuscation.map"
-}
+}
