@@ -332,8 +332,10 @@ public class TridentLoader implements ClientModInitializer {
                     lastWarpAttempt = now;
                 }
             } else if (loc == WorldChecker.Location.MURKWATER) {
+                // Reset warp flag — we're in the correct zone now
+                commandsSent = false;
                 // Correct zone — start macro if not already running
-                if (!macroActive && !commandsSent) {
+                if (!macroActive) {
                     int pickles = CameraManager.countSeaPicklesInArea();
                     sendPlayerMessage(client, "§3[§bTrident§3] §7Sea Pickles Found: " + pickles);
                     if (pickles < CameraManager.pickleamount) {

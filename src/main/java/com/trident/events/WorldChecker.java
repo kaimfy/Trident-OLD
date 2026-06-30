@@ -94,7 +94,7 @@ public class WorldChecker {
             if (line.contains("galatea")) return Location.GALATEA;
         }
 
-        return null;
+        return Location.SKYBLOCK_UNKNOWN;
 
     }
 

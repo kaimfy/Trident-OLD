@@ -54,15 +54,15 @@ public class FailsafeManager {
             "admin", "moderator", "has messaged you", "banned",
             "are you there", "hello?", "afk check", "afk?",
             "are you botting", "are you macroing", "staff",
-            "watchdog", "suspicious", "warning"
+            "suspicious", "warning", "macro", "macroer", "macroing",
+            "cheating", "cheater", "macros", "report", "reported"
     };
 
     // Unnatural blocks
     private static final Set<Block> STAFFCHECK_BLOCKS = Set.of(
             Blocks.BEDROCK, Blocks.BARRIER, Blocks.STRUCTURE_VOID,
             Blocks.COMMAND_BLOCK, Blocks.CHAIN_COMMAND_BLOCK,
-            Blocks.REPEATING_COMMAND_BLOCK
-    );
+            Blocks.REPEATING_COMMAND_BLOCK);
 
     public static void init() {
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
@@ -150,7 +150,8 @@ public class FailsafeManager {
         float yawDiff = Math.abs(MathHelper_wrapDegrees(player.getYaw() - expectedYaw));
         float pitchDiff = Math.abs(MathHelper_wrapDegrees(player.getPitch() - expectedPitch));
 
-        // If rotation changed >45° from where we expected it, and the macro was setting it,
+        // If rotation changed >45° from where we expected it, and the macro was setting
+        // it,
         // something external moved the camera
         if (yawDiff > 45.0f || pitchDiff > 45.0f) {
             triggerFailsafe("Rotation snap detected! (Δyaw=" + String.format("%.1f", yawDiff)
@@ -160,8 +161,10 @@ public class FailsafeManager {
 
     private static float MathHelper_wrapDegrees(float degrees) {
         float f = degrees % 360.0f;
-        if (f >= 180.0f) f -= 360.0f;
-        if (f < -180.0f) f += 360.0f;
+        if (f >= 180.0f)
+            f -= 360.0f;
+        if (f < -180.0f)
+            f += 360.0f;
         return f;
     }
 
@@ -239,7 +242,8 @@ public class FailsafeManager {
     public static void triggerFailsafe(String reason) {
         MacroConfig config = MacroConfig.get();
 
-        if (reacting) return; // Don't re-trigger during reaction
+        if (reacting)
+            return; // Don't re-trigger during reaction
 
         if (client.player != null) {
             client.player.sendMessage(Text.literal("§c[Trident Failsafe] Triggered: " + reason), false);
@@ -310,7 +314,7 @@ public class FailsafeManager {
             // Optionally send a chat message
             if (reactionPhase == 0 && config.failsafeSendChat) {
                 reactionPhase = 1;
-                String[] msgs = {"?", "hm", "lag", "wut"};
+                String[] msgs = { "?", "hm", "lag", "wut" };
                 String msg = msgs[rand.nextInt(msgs.length)];
                 if (client.getNetworkHandler() != null) {
                     client.getNetworkHandler().sendChatMessage(msg);
@@ -354,10 +358,12 @@ public class FailsafeManager {
     // ===== Helpers =====
 
     private static boolean isAnyMacroActive() {
-        if (DwarvenMiningModule.isActive()) return true;
+        if (DwarvenMiningModule.isActive())
+            return true;
         // AutoFish is an instance in TridentLoader — check via the loader
         // MobActionModule
-        if (MobActionModule.isOn) return true;
+        if (MobActionModule.isOn)
+            return true;
         return false;
     }
 

@@ -129,20 +129,7 @@ public class CameraManager {
         tickstuckCounter++;
         if (tickstuckCounter >= 120) {
             sendMessage("§3[§bTrident§3] §7Stuck Detected.");
-
-            client.options.jumpKey.setPressed(false);
-            client.options.sneakKey.setPressed(false);
-            client.options.forwardKey.setPressed(false);
-            client.options.sprintKey.setPressed(false);
-
-            tickstuckCounter = 0;
-            currentTarget = null;
-            targetPositions.clear();
-            active = false;
-            raisedTarget = false;
-            stuckTicks = 0;
-            firstblock = false;
-
+            stopMacro();
             return;
         }
 
