@@ -6,14 +6,9 @@ import com.trident.events.AutoJoinHypixel;
 import com.trident.events.CameraManager;
 import com.trident.events.KeyHandler;
 import com.trident.events.WorldChecker;
-import com.trident.gui.CustomGUIScreen;
+
 import com.trident.gui.SeaLumiesHUD;
-import com.trident.modules.AutoFishModule;
-import com.trident.modules.DwarvenMiningModule;
-import com.trident.modules.FailsafeManager;
-import com.trident.modules.ForagingModule;
-import com.trident.modules.MobActionModule;
-import com.trident.modules.Nuker;
+import com.trident.modules.*;
 import com.trident.network.BazaarPriceFetcher;
 import com.trident.pathing.PathVisualizer;
 import com.trident.pathing.RouteCommands;
@@ -55,13 +50,11 @@ import java.util.concurrent.TimeUnit;
 @SuppressWarnings({ "deprecation", "null" })
 public class TridentLoader implements ClientModInitializer {
 
-    public static final Set<String> TARGET_PLAYERS = new HashSet<>(Arrays.asList(
-            "yuvet",
-            "FunDaOne"));
+
 
     private static boolean joinedServer = false;
     private long islandArrivalTime = 0;
-    private final AutoFishModule autoFish = new AutoFishModule();
+    public final AutoFishModule autoFish = new AutoFishModule();
     private static int framecount = 0;
     public List<BlockPos> blockList = new ArrayList<>();
     private int currentTargetIndex = 0;
@@ -79,14 +72,19 @@ public class TridentLoader implements ClientModInitializer {
     private float r, g, b;
 
     // Bazaar relist
+
     private static boolean bazaarLoaded = false;
     private static boolean onIsland = false;
-    private int relistCooldownTicks = 0;
+    public int relistCooldownTicks = 0;
     private boolean relistInProgress = false;
-    private static final int RELIST_INTERVAL_TICKS = 20 * 60 * 15;
+    public static final int RELIST_INTERVAL_TICKS = 20 * 60 * 15;
+    private long stuckSince = 0;
 
+    //World safety
+
+    private long worldTime = 0;
     // Warp retry
-    private static final long WARP_RETRY_MS = 4_000;
+    private static final long WARP_RETRY_MS = 100;
     private long lastWarpAttempt = 0;
 
     // join manager
@@ -96,6 +94,7 @@ public class TridentLoader implements ClientModInitializer {
     private int tickCounter = 0;
     Vec3d lastPlayerPos = new Vec3d(0, 0, 0);
     public boolean shouldLoop = true;
+
 
     private static TridentLoader instance;
 
@@ -109,52 +108,9 @@ public class TridentLoader implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        bazaarLoaded = FabricLoader.getInstance().isModLoaded("bazaarmod");
 
-        if (!Trident.access) {
-            ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-                if (!joinedServer) {
-                    joinedServer = true;
-                    sendPlayerMessage(client,
-                            "§3[§bTrident§3] §7Couldnt Verify Your Account, Please Check Your Authentication.");
-                }
-            });
-            return;
-        }
+        TridentInit();
 
-        switch (theme) {
-            case "purple":
-                r = 0.7f;
-                g = 0.2f;
-                b = 1f;
-                break;
-            case "red":
-                r = 1f;
-                g = 0.2f;
-                b = 0.2f;
-                break;
-        }
-
-        AutoJoinHypixel.init();
-        Nuker.init();
-        DwarvenMiningModule.init();
-        ForagingModule.init();
-        FailsafeManager.init();
-        BazaarPriceFetcher.fetchPriceAsync();
-        ApplicaConfigurazioni();
-        RouteCommands.register();
-        KeyHandler.register();
-
-        MacroConfig config = MacroConfig.get();
-        SeaLumiesTracker.loadFromConfig(
-                config.lifetimeCoins,
-                config.lifetimeMacroMinutes);
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            MacroConfig meow = MacroConfig.get();
-            meow.lifetimeCoins = SeaLumiesTracker.getLifetimeCoinsForSave();
-            meow.lifetimeMacroMinutes = SeaLumiesTracker.getLifetimeMinutesForSave();
-            MacroConfig.save();
-        }));
 
         HudRenderCallback.EVENT.register(SeaLumiesHUD::render);
 
@@ -170,6 +126,21 @@ public class TridentLoader implements ClientModInitializer {
             if (client.world == null || client.player == null || client.getNetworkHandler() == null)
                 return;
 
+
+            boolean loadingScreen =
+                    client.currentScreen != null &&
+                            client.currentScreen.getClass().getName().contains("class_3928");
+
+            if (client.world != null &&
+                    client.player != null &&
+                    client.getNetworkHandler() != null &&
+                    !loadingScreen) {
+
+
+                worldTime++; // ONLY advances when world is stable
+            } else {
+
+            }
             SeaLumiesTracker.tick(client.player);
 
             if (joinedServer && !started) {
@@ -193,72 +164,10 @@ public class TridentLoader implements ClientModInitializer {
                 }
 
             }
-
-            // ── Key handlers ────────────────────────────────────────────────
-            if (KeyHandler.shardkill.wasPressed()) {
-                if (MobActionModule.isOn) {
-                    sendPlayerMessage(client, "§3[§bTrident§3] §7Shard Kill: §cFalse");
-                    MobActionModule.isOn = false;
-                } else {
-                    sendPlayerMessage(client, "§3[§bTrident§3] §7Shard Kill: §aTrue");
-                    MobActionModule.isOn = true;
-                }
-            }
-            if (MobActionModule.isOn)
-                MobActionModule.onTick();
-
             autoFish.tick();
+            // ── Key handlers ────────────────────────────────────────────────
+            KeyHandler.tick(client, this);
 
-            if (KeyHandler.custommenu.wasPressed()) {
-                MinecraftClient.getInstance().setScreen(new CustomGUIScreen());
-            }
-            if (KeyHandler.menu.wasPressed()) {
-                client.execute(() -> client.mouse.unlockCursor());
-            }
-            if (KeyHandler.startmacro.wasPressed()) {
-                if (macroActive || macrotoggle) {
-                    macrotoggle = false;
-                    SeaLumiesHUD.setActive(false);
-                    MacroTracker.stopTracking();
-                    stopMacro(client);
-                    WorldChecker.reset();
-                    sendPlayerMessage(client, "§3[§bTrident§3] §7Macro stopped");
-                } else if (!blockList.isEmpty()) {
-                    SeaLumiesHUD.setActive(true);
-                    MacroTracker.startTracking(client.player);
-                    macrotoggle = true;
-                    relistCooldownTicks = RELIST_INTERVAL_TICKS;
-                    WorldChecker.reset();
-                    sendPlayerMessage(client, "§3[§bTrident§3] §7Macro started with " + blockList.size() + " points");
-                    // Don't call startMacro here — let the location state machine do it
-                    // once it confirms we're in MURKWATER
-                } else {
-                    sendPlayerMessage(client, "§3[§bTrident§3] §7No positions saved");
-                }
-            }
-
-            if (KeyHandler.savecoord.wasPressed()) {
-                BlockPos pos = client.player.getBlockPos();
-                blockList.add(pos);
-                CameraManager.addsave(pos);
-                sendPlayerMessage(client,
-                        "§3[§bTrident§3] §7Saved position #" + blockList.size() + " at: " + pos.toShortString());
-                PathVisualizer.spawnPathMarkers(blockList);
-            }
-
-            if (KeyHandler.fish.wasPressed()) {
-                autoFish.toggle();
-            }
-
-            if (KeyHandler.clearall.wasPressed()) {
-                stopMacro(client);
-                macrotoggle = false;
-                blockList.clear();
-                CameraManager.clearsave();
-                WorldChecker.reset();
-                PathVisualizer.spawnPathMarkers(blockList);
-                sendPlayerMessage(client, "§3[§bTrident§3] §7Cleared all positions");
-            }
 
             if (client.currentScreen != null && client.currentScreen.shouldPause()) {
                 stopMacro(client);
@@ -290,11 +199,10 @@ public class TridentLoader implements ClientModInitializer {
             if (WorldChecker.isScoreboardTimedOut()) {
                 if (macroActive)
                     stopMacro(client);
-                long now = System.currentTimeMillis();
-                if (now - lastWarpAttempt > WARP_RETRY_MS) {
+                if (worldTime - lastWarpAttempt > WARP_RETRY_MS) {
                     sendPlayerMessage(client, "§3[§bTrident§3] §7Limbo detected, sending /lobby");
                     sendServerCommand(client, "lobby");
-                    lastWarpAttempt = now;
+                    lastWarpAttempt = worldTime;
                 }
                 CameraManager.tick();
                 return;
@@ -311,46 +219,89 @@ public class TridentLoader implements ClientModInitializer {
 
             // ── Location state machine ────────────────────────────────────────
             WorldChecker.Location loc = WorldChecker.getLocation();
-            long now = System.currentTimeMillis();
+
 
             if (loc == null) {
                 // Scoreboard not loaded yet, wait
             } else if (loc == WorldChecker.Location.LOBBY) {
                 if (macroActive)
                     stopMacro(client);
-                if (now - lastWarpAttempt > WARP_RETRY_MS) {
+                if (worldTime - lastWarpAttempt > WARP_RETRY_MS+100) {
                     sendPlayerMessage(client, "§3[§bTrident§3] §7Lobby detected, sending /play skyblock");
                     sendServerCommand(client, "play skyblock");
-                    lastWarpAttempt = now;
+                    WorldChecker.reset();
+                    lastWarpAttempt = worldTime;
                 }
             } else if (loc == WorldChecker.Location.TANGLEBURG || loc == WorldChecker.Location.SKYBLOCK_UNKNOWN) {
                 if (macroActive)
                     stopMacro(client);
-                if (now - lastWarpAttempt > WARP_RETRY_MS) {
+                if (worldTime - lastWarpAttempt > WARP_RETRY_MS) {
                     sendPlayerMessage(client, "§3[§bTrident§3] §7Wrong zone (" + loc + "), retrying /warp murk");
                     sendServerCommand(client, "warp murk");
-                    lastWarpAttempt = now;
+                    WorldChecker.reset();
+                    lastWarpAttempt = worldTime;
                 }
             } else if (loc == WorldChecker.Location.MURKWATER) {
+
                 // Reset warp flag — we're in the correct zone now
                 commandsSent = false;
                 // Correct zone — start macro if not already running
+
                 if (!macroActive) {
                     int pickles = CameraManager.countSeaPicklesInArea();
-                    sendPlayerMessage(client, "§3[§bTrident§3] §7Sea Pickles Found: " + pickles);
-                    if (pickles < CameraManager.pickleamount) {
+                    if (worldTime - lastWarpAttempt > WARP_RETRY_MS) {
 
-                        stopMacro(client);
-                        commandsSent = true;
-                        onIsland = false;
-                        sendServerCommand(client, "is");
-                        WorldChecker.reset(); // force re-confirmation after warp
-                        lastWarpAttempt = now;
-                    } else {
+                        sendPlayerMessage(client, "§3[§bTrident§3] §7Sea Pickles Found: " + pickles);
+                        if (pickles < CameraManager.pickleamount) {
+
+                            stopMacro(client);
+                            commandsSent = true;
+                            onIsland = false;
+                            sendServerCommand(client, "is");
+                            WorldChecker.reset(); // force re-confirmation after warp
+                            lastWarpAttempt = worldTime;
+                        }
+                    }
+                    if(pickles > CameraManager.pickleamount){
                         sendPlayerMessage(client, "§3[§bTrident§3] §7In Murkwater, starting macro");
                         startMacro(client);
                     }
 
+                }
+                if (macroActive) {
+
+                    boolean moving = CameraManager.isMoving;
+
+
+                    if (!moving) {
+
+                        if (stuckSince == 0) {
+                            stuckSince = worldTime;
+                        }
+
+                        long stuckTime = worldTime - stuckSince;
+
+                        if (stuckTime > 160) {
+
+                            stopMacro(client);
+                            commandsSent = true;
+                            onIsland = false;
+                            sendServerCommand(client, "is");
+                            WorldChecker.reset();
+                            lastWarpAttempt = worldTime;
+                            sendPlayerMessage(client,
+                                    "§3[§bTrident§3] §7Path stalled, restarting macro...");
+
+
+
+
+                            stuckSince = 0;
+                            return;
+                        }
+
+                    } else {
+                        stuckSince = 0;
+                    }
                 }
 
                 // Check if path finished
@@ -360,14 +311,14 @@ public class TridentLoader implements ClientModInitializer {
                     onIsland = false;
                     sendServerCommand(client, "is");
                     WorldChecker.reset(); // force re-confirmation after warp
-                    lastWarpAttempt = now;
+                    lastWarpAttempt = worldTime;
                     sendPlayerMessage(client, "§3[§bTrident§3] §7Path complete, warping to island");
                 }
 
-                if (!macroActive && commandsSent && !onIsland && now - lastWarpAttempt > WARP_RETRY_MS) {
+                if (!macroActive && commandsSent && !onIsland && worldTime - lastWarpAttempt > WARP_RETRY_MS) {
                     sendPlayerMessage(client, "§3[§bTrident§3] §7Island warp failed, retrying...");
                     sendServerCommand(client, "is");
-                    lastWarpAttempt = now;
+                    lastWarpAttempt = worldTime;
                 }
             } else if (loc == WorldChecker.Location.YOUR_ISLAND) {
                 if (macroActive)
@@ -376,11 +327,11 @@ public class TridentLoader implements ClientModInitializer {
 
                 if (!onIsland) {
                     onIsland = true;
-                    islandArrivalTime = System.currentTimeMillis();
+                    islandArrivalTime = worldTime;
                     sendPlayerMessage(client, "§3[§bTrident§3] §7On island.");
                 }
 
-                long timeOnIsland = System.currentTimeMillis() - islandArrivalTime;
+                long timeOnIsland = worldTime - islandArrivalTime;
 
                 // Trigger relist after 5s if cooldown is done
                 if (bazaarLoaded && relistCooldownTicks == 0 && !relistInProgress && timeOnIsland >= 5_000) {
@@ -416,14 +367,14 @@ public class TridentLoader implements ClientModInitializer {
                 boolean relistDone = !bazaarLoaded
                         || (!relistInProgress && (relistCooldownTicks > 0 || timeOnIsland >= 5_000));
                 if (DoneDropping && relistDone) {
-                    if (now - lastWarpAttempt > WARP_RETRY_MS) {
+                    if (worldTime - lastWarpAttempt > WARP_RETRY_MS) {
                         onIsland = false;
                         commandsSent = false;
                         DoneDropping = true;
                         sendServerCommand(client, "warp murk");
                         WorldChecker.reset();
                         sendPlayerMessage(client, "§3[§bTrident§3] §7Warping to Murkwater...");
-                        lastWarpAttempt = now;
+                        lastWarpAttempt = worldTime;
                     }
                 }
             }
@@ -470,19 +421,6 @@ public class TridentLoader implements ClientModInitializer {
         CameraManager.editspeed(config.pathRotationSpeed);
         CameraManager.setpickles(config.pathPickleSwapDetection);
         this.shouldLoop = config.pathLoopActive;
-    }
-
-    private static void checkPlayersOnce(MinecraftClient client) {
-        if (client.world == null)
-            return;
-        for (PlayerEntity player : client.world.getPlayers()) {
-            String playerName = player.getName().getString();
-            if (TARGET_PLAYERS.contains(playerName)) {
-                sendPlayerMessage(client, "§3[§bTrident§3] §7FOUND OPP RUN BOYYY");
-                CameraManager.stopMacro();
-                return;
-            }
-        }
     }
 
     public static int countSeaLumies(PlayerEntity player) {
@@ -556,11 +494,11 @@ public class TridentLoader implements ClientModInitializer {
         for (BlockPos pos : blockList) {
             CameraManager.addTarget(pos);
         }
-        checkPlayersOnce(client);
+
         CameraManager.toggleMacro();
     }
 
-    private void stopMacro(MinecraftClient client) {
+    public void stopMacro(MinecraftClient client) {
         if (!macroActive)
             return;
         macroActive = false;
@@ -608,7 +546,7 @@ public class TridentLoader implements ClientModInitializer {
         }
     }
 
-    private static void sendPlayerMessage(MinecraftClient client, String message) {
+    public static void sendPlayerMessage(MinecraftClient client, String message) {
         PlayerEntity player = client.player;
         if (player != null) {
             player.sendMessage(Text.literal(message), false);
@@ -697,5 +635,54 @@ public class TridentLoader implements ClientModInitializer {
 
     public static String getFrame() {
         return "" + framecount;
+    }
+    public void TridentInit(){
+        bazaarLoaded = FabricLoader.getInstance().isModLoaded("bazaarmod");
+
+        if (!Trident.access) {
+            ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+                if (!joinedServer) {
+                    joinedServer = true;
+                    sendPlayerMessage(client,
+                            "§3[§bTrident§3] §7Couldnt Verify Your Account, Please Check Your Authentication.");
+                }
+            });
+            return;
+        }
+
+        switch (theme) {
+            case "purple":
+                r = 0.7f;
+                g = 0.2f;
+                b = 1f;
+                break;
+            case "red":
+                r = 1f;
+                g = 0.2f;
+                b = 0.2f;
+                break;
+        }
+
+        AutoJoinHypixel.init();
+        AutoTunneler.init();
+        Nuker.init();
+        DwarvenMiningModule.init();
+        ForagingModule.init();
+        FailsafeManager.init();
+        BazaarPriceFetcher.fetchPriceAsync();
+        ApplicaConfigurazioni();
+        RouteCommands.register();
+        KeyHandler.register();
+
+        MacroConfig config = MacroConfig.get();
+        SeaLumiesTracker.loadFromConfig(
+                config.lifetimeCoins,
+                config.lifetimeMacroMinutes);
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            MacroConfig meow = MacroConfig.get();
+            meow.lifetimeCoins = SeaLumiesTracker.getLifetimeCoinsForSave();
+            meow.lifetimeMacroMinutes = SeaLumiesTracker.getLifetimeMinutesForSave();
+            MacroConfig.save();
+        }));
     }
 }

@@ -19,7 +19,7 @@ public class WorldChecker {
     // How long to wait for scoreboard to appear before declaring limbo
     private static final long SCOREBOARD_TIMEOUT_MS = 10_000;
     // How long a scoreboard state must be stable before we trust it
-    private static final long STABILIZE_DELAY_MS = 1_500;
+
 
     private static Location currentLocation = null;
     private static Location pendingLocation = null;
@@ -52,11 +52,11 @@ public class WorldChecker {
             return;
         }
 
-        if ((now - pendingSince) >= STABILIZE_DELAY_MS) {
-            if (detected != currentLocation) {
-                currentLocation = detected != null ? detected : Location.SKYBLOCK_UNKNOWN;
-            }
+
+        if (detected != currentLocation) {
+            currentLocation = detected != null ? detected : Location.SKYBLOCK_UNKNOWN;
         }
+
     }
 
     // Returns null if no scoreboard present
