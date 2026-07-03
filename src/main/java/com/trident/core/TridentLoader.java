@@ -334,7 +334,7 @@ public class TridentLoader implements ClientModInitializer {
                 long timeOnIsland = worldTime - islandArrivalTime;
 
                 // Trigger relist after 5s if cooldown is done
-                if (bazaarLoaded && relistCooldownTicks == 0 && !relistInProgress && timeOnIsland >= 5_000) {
+                if (bazaarLoaded && relistCooldownTicks == 0 && !relistInProgress && timeOnIsland >= 100) {
                     relistInProgress = true;
                     BazaarModClient.MANUAL_RELIST.trigger(client);
                     sendPlayerMessage(client, "§3[§bTrident§3] §7Starting bazaar relist...");
@@ -365,7 +365,7 @@ public class TridentLoader implements ClientModInitializer {
 
                 // Ready to leave — but wait at least 5s AND for relist to be done
                 boolean relistDone = !bazaarLoaded
-                        || (!relistInProgress && (relistCooldownTicks > 0 || timeOnIsland >= 5_000));
+                        || (!relistInProgress && (relistCooldownTicks > 0 || timeOnIsland >= 100));
                 if (DoneDropping && relistDone) {
                     if (worldTime - lastWarpAttempt > WARP_RETRY_MS) {
                         onIsland = false;
