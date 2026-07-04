@@ -2,8 +2,8 @@ package com.trident.network;
 
 import com.google.gson.JsonObject;
 import com.trident.config.MacroConfig;
-import com.trident.modules.DwarvenMiningModule;
-import com.trident.modules.MobActionModule;
+import com.trident.modules.DwarvenMining;
+import com.trident.modules.MobAction;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 
@@ -42,14 +42,14 @@ public class DiscordCommandHandler {
     private static void handleStartMacro(String macroType) {
         switch (macroType.toLowerCase()) {
             case "dwarven" -> {
-                if (!DwarvenMiningModule.isActive()) {
-                    DwarvenMiningModule.start();
+                if (!DwarvenMining.isActive()) {
+                    DwarvenMining.start();
                     sendMessage("§a[Trident] Dwarven Mining started via Discord");
                 }
             }
             case "mobaction" -> {
-                if (!MobActionModule.isOn) {
-                    MobActionModule.isOn = true;
+                if (!MobAction.isOn) {
+                    MobAction.isOn = true;
                     sendMessage("§a[Trident] Mob Action started via Discord");
                 }
             }
@@ -58,8 +58,8 @@ public class DiscordCommandHandler {
     }
 
     private static void handleStopMacro() {
-        DwarvenMiningModule.stop();
-        MobActionModule.stop();
+        DwarvenMining.stop();
+        MobAction.stop();
         sendMessage("§c[Trident] All macros stopped via Discord");
     }
 

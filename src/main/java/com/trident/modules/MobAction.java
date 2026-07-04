@@ -1,5 +1,8 @@
 package com.trident.modules;
 
+import com.trident.core.TridentLoader;
+import com.trident.events.KeyHandler;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.LivingEntity;
@@ -9,7 +12,7 @@ import net.minecraft.util.Hand;
 import java.util.List;
 
 @SuppressWarnings("null")
-public class MobActionModule {
+public class MobAction {
 
     private static final MinecraftClient client = MinecraftClient.getInstance();
 
@@ -18,6 +21,21 @@ public class MobActionModule {
     private static long healTime = 0;
     private static LivingEntity currentTarget = null;
     public static boolean isOn = false;
+
+    /** Registers the {@code shardkill} keybind toggle and the per-tick combat loop. */
+    public static void init() {
+        ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+            if (KeyHandler.shardkill != null && KeyHandler.shardkill.wasPressed()) {
+                isOn = !isOn;
+                TridentLoader.sendPlayerMessage(mc,
+                        "§3[§bTrident§3] §7Shard Kill: " + (isOn ? "§aTrue" : "§cFalse"));
+                if (!isOn) currentTarget = null;
+            }
+            if (isOn) {
+                onTick();
+            }
+        });
+    }
 
     public static void stop() {
         isOn = false;
@@ -70,7 +88,7 @@ public class MobActionModule {
         List<LivingEntity> entities = client.world.getEntitiesByClass(
                 LivingEntity.class,
                 client.player.getBoundingBox().expand(6.0),
-                MobActionModule::isValidTarget
+                MobAction::isValidTarget
         );
 
         if (entities.isEmpty()) return null;

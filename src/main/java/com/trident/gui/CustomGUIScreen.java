@@ -5,9 +5,10 @@ import com.trident.core.Trident;
 import com.trident.core.TridentLoader;
 import com.trident.events.CameraManager;
 import com.trident.events.KeyHandler;
-import com.trident.modules.DwarvenMiningModule;
-import com.trident.modules.ForagingModule;
-import com.trident.modules.MobActionModule;
+import com.trident.modules.DwarvenMining;
+import com.trident.modules.Farming;
+import com.trident.modules.Foraging;
+import com.trident.modules.MobAction;
 import com.trident.modules.Nuker;
 
 import net.minecraft.client.MinecraftClient;
@@ -45,7 +46,7 @@ public class CustomGUIScreen extends Screen {
     private CustomKeybindButton listeningButton = null;
 
     // Icons for categories
-    private static final String[] CATEGORY_ICONS = {"⛏", "🌲", "🎣", "⚔", "📦", "🛡", "🌐", "⌨", "⚙"};
+    private static final String[] CATEGORY_ICONS = {"⛏", "🌲", "🌾", "🎣", "⚔", "📦", "🛡", "🌐", "⌨", "⚙"};
 
     public CustomGUIScreen() {
         super(Text.literal("Custom GUI"));
@@ -67,9 +68,9 @@ public class CustomGUIScreen extends Screen {
 
         // ===== 1. Dwarven Mining =====
         Sezione dwarven = new Sezione("Dwarven Mining");
-        dwarven.addControllo(new CustomToggleButton(0, 0, 100, 20, DwarvenMiningModule.isActive(), val -> {
-            if (val) DwarvenMiningModule.start();
-            else DwarvenMiningModule.stop();
+        dwarven.addControllo(new CustomToggleButton(0, 0, 100, 20, DwarvenMining.isActive(), val -> {
+            if (val) DwarvenMining.start();
+            else DwarvenMining.stop();
         }, "Mining Toggle"));
         dwarven.addControllo(new CustomToggleButton(0, 0, 100, 20, config.dwarvenPrioritizeTitanium, val -> {
             config.dwarvenPrioritizeTitanium = val;
@@ -98,43 +99,16 @@ public class CustomGUIScreen extends Screen {
 
         // ===== 2. Foraging =====
         Sezione foraging = new Sezione("Foraging");
-        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, ForagingModule.isActive(), val -> {
-            if (val) ForagingModule.start();
-            else ForagingModule.stop();
+        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, Foraging.isActive(), val -> {
+            if (val) Foraging.start();
+            else Foraging.stop();
         }, "Foraging Toggle"));
-        foraging.addControllo(new CustomLabel(0, 0, "--- Tree Types ---"));
-        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingOak, val -> {
-            config.foragingOak = val;
+        foraging.addControllo(new CustomDropdown(0, 0, 120, 20,
+                new String[]{"Oak", "Spruce", "Birch", "Jungle", "Acacia", "Dark Oak", "Mangrove", "Cherry"},
+                config.foragingTreeType, val -> {
+            config.foragingTreeType = val;
             MacroConfig.save();
-        }, "Oak"));
-        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingSpruce, val -> {
-            config.foragingSpruce = val;
-            MacroConfig.save();
-        }, "Spruce"));
-        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingBirch, val -> {
-            config.foragingBirch = val;
-            MacroConfig.save();
-        }, "Birch"));
-        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingJungle, val -> {
-            config.foragingJungle = val;
-            MacroConfig.save();
-        }, "Jungle"));
-        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingAcacia, val -> {
-            config.foragingAcacia = val;
-            MacroConfig.save();
-        }, "Acacia"));
-        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingDarkOak, val -> {
-            config.foragingDarkOak = val;
-            MacroConfig.save();
-        }, "Dark Oak"));
-        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingMangrove, val -> {
-            config.foragingMangrove = val;
-            MacroConfig.save();
-        }, "Mangrove (high stats)"));
-        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingCherry, val -> {
-            config.foragingCherry = val;
-            MacroConfig.save();
-        }, "Cherry"));
+        }, "Tree Type"));
         foraging.addControllo(new CustomLabel(0, 0, "--- Humanization ---"));
         foraging.addControllo(new CustomSlider(0, 0, 150, 12, 0.06f, 0.25f, config.foragingRotationSpeedMean, val -> {
             config.foragingRotationSpeedMean = val;
@@ -161,20 +135,59 @@ public class CustomGUIScreen extends Screen {
             MacroConfig.save();
         }, "Scan Radius"));
 
-        // ===== 3. Fishing =====
+        // ===== 3. Farming (Garden) =====
+        Sezione farming = new Sezione("Farming");
+        farming.addControllo(new CustomToggleButton(0, 0, 100, 20, Farming.isActive(), val -> {
+            if (val) Farming.start();
+            else Farming.stop();
+        }, "Farming Toggle"));
+        farming.addControllo(new CustomDropdown(0, 0, 120, 20,
+                new String[]{"Wheat", "Carrot", "Potato", "Nether Wart", "Sugar Cane", "Cactus", "Pumpkin", "Melon", "Cocoa", "Mushroom"},
+                config.farmingCropType, val -> {
+            config.farmingCropType = val;
+            MacroConfig.save();
+        }, "Crop Type"));
+        farming.addControllo(new CustomLabel(0, 0, "--- Behavior ---"));
+        farming.addControllo(new CustomToggleButton(0, 0, 100, 20, config.farmingLaneShift, val -> {
+            config.farmingLaneShift = val;
+            MacroConfig.save();
+        }, "Lane Shift on Turn"));
+        farming.addControllo(new CustomLabel(0, 0, "--- Humanization ---"));
+        farming.addControllo(new CustomSlider(0, 0, 150, 12, 0.06f, 0.25f, config.farmingRotationSpeedMean, val -> {
+            config.farmingRotationSpeedMean = val;
+            MacroConfig.save();
+        }, "Rotation Speed"));
+        farming.addControllo(new CustomSlider(0, 0, 150, 12, 3f, 20f, config.farmingDelayMean, val -> {
+            config.farmingDelayMean = val;
+            MacroConfig.save();
+        }, "Delay Mean (ticks)"));
+        farming.addControllo(new CustomSlider(0, 0, 150, 12, 1f, 10f, config.farmingDelayStddev, val -> {
+            config.farmingDelayStddev = val;
+            MacroConfig.save();
+        }, "Delay Variance"));
+        farming.addControllo(new CustomToggleButton(0, 0, 100, 20, config.farmingLookAround, val -> {
+            config.farmingLookAround = val;
+            MacroConfig.save();
+        }, "Look Around"));
+        farming.addControllo(new CustomSlider(0, 0, 150, 12, 0f, 0.2f, config.farmingMicroPauseChance, val -> {
+            config.farmingMicroPauseChance = val;
+            MacroConfig.save();
+        }, "Micro-Pause Chance"));
+
+        // ===== 4. Fishing =====
         Sezione fishing = new Sezione("Fishing");
         fishing.addControllo(new CustomLabel(0, 0, "AutoFish is toggled via keybind (J)"));
         fishing.addControllo(new CustomLabel(0, 0, "Status is shown in-game when active"));
 
         // ===== 3. Combat =====
         Sezione combat = new Sezione("Combat");
-        combat.addControllo(new CustomToggleButton(0, 0, 100, 20, MobActionModule.isOn, val -> {
-            MobActionModule.isOn = val;
+        combat.addControllo(new CustomToggleButton(0, 0, 100, 20, MobAction.isOn, val -> {
+            MobAction.isOn = val;
         }, "Mob Action Toggle"));
         combat.addControllo(new CustomLabel(0, 0, "Targets: Taurus > Eel > Flame > Slug > Moogma/Worm/Leech"));
 
-        // ===== 4. Path =====
-        Sezione path = new Sezione("Path");
+        // ===== Sea Lumies (path) =====
+        Sezione path = new Sezione("Sea Lumies");
         path.addControllo(new CustomSlider(0, 0, 150, 12, 0.01F, 0.5F, config.pathRotationSpeed, val -> {
             config.pathRotationSpeed = val;
             MacroConfig.save();
@@ -265,6 +278,7 @@ public class CustomGUIScreen extends Screen {
 
         sezioni.add(dwarven);
         sezioni.add(foraging);
+        sezioni.add(farming);
         sezioni.add(fishing);
         sezioni.add(combat);
         sezioni.add(path);
@@ -379,6 +393,11 @@ public class CustomGUIScreen extends Screen {
         }
 
         context.disableScissor();
+
+        // Overlay pass: expanded dropdown menus draw on top of everything, unclipped.
+        for (int i = 0; i < active.controlli.size(); i++) {
+            active.controlli.get(i).renderOverlay(context, mouseX, mouseY, easedProgress);
+        }
 
         // Scroll indicator
         if (maxScrollOffset > 0) {
@@ -503,6 +522,8 @@ public class CustomGUIScreen extends Screen {
         protected int x, y;
         public void setPosition(int x, int y) { this.x = x; this.y = y; }
         abstract void render(DrawContext context, int mouseX, int mouseY, float alpha);
+        /** Drawn after all controls, on top and unclipped (e.g. an expanded dropdown menu). */
+        void renderOverlay(DrawContext context, int mouseX, int mouseY, float alpha) {}
         abstract boolean mouseClicked(double mouseX, double mouseY, int button);
         void mouseReleased(double mouseX, double mouseY, int button) {}
         boolean mouseDragged(double mouseX, double mouseY, int button) { return false; }
@@ -726,23 +747,40 @@ public class CustomGUIScreen extends Screen {
             context.fill(x + width - 1, y, x + width, y + height, borderColor);
 
             int valueColor = (alphaInt << 24) | 0xFFFFFF;
-            context.drawText(MinecraftClient.getInstance().textRenderer, Text.literal(options[selectedIndex] + " ▼"),
+            context.drawText(MinecraftClient.getInstance().textRenderer, Text.literal(options[selectedIndex] + (expanded ? " ▲" : " ▼")),
                     x + 6, y + (height / 2) - 4, valueColor, false);
+        }
 
-            // Expanded options
-            if (expanded) {
-                for (int i = 0; i < options.length; i++) {
-                    int optY = y + height + i * height;
-                    boolean optHovered = mouseX >= x && mouseX <= x + width && mouseY >= optY && mouseY <= optY + height;
-                    int optBg = (alphaInt << 24) | (optHovered ? 0x3399FF : 0x2A2A2A);
-                    context.fill(x, optY, x + width, optY + height, optBg);
-                    int optBorder = (alphaInt << 24) | 0x444444;
-                    context.fill(x, optY + height - 1, x + width, optY + height, optBorder);
-                    int optText = (alphaInt << 24) | (i == selectedIndex ? 0x3399FF : 0xCCCCCC);
-                    context.drawText(MinecraftClient.getInstance().textRenderer, Text.literal(options[i]),
-                            x + 6, optY + (height / 2) - 4, optText, false);
-                }
+        @Override void renderOverlay(DrawContext context, int mouseX, int mouseY, float alpha) {
+            if (!expanded) return;
+            int alphaInt = (int) (alpha * 255) & 0xFF;
+
+            int listTop = y + height;
+            int listBottom = listTop + options.length * height;
+
+            // Drop shadow so the menu reads as floating above the controls behind it.
+            context.fill(x + 3, listTop + 3, x + width + 3, listBottom + 3, (Math.min(alphaInt, 140) << 24));
+            // Opaque backdrop — fully hides whatever is underneath.
+            context.fill(x, listTop, x + width, listBottom, 0xFF17171A);
+
+            for (int i = 0; i < options.length; i++) {
+                int optY = listTop + i * height;
+                boolean optHovered = mouseX >= x && mouseX <= x + width && mouseY >= optY && mouseY <= optY + height;
+                int optBg = 0xFF000000 | (optHovered ? 0x2E4A66 : (i == selectedIndex ? 0x24262B : 0x17171A));
+                context.fill(x, optY, x + width, optY + height, optBg);
+                int optBorder = 0xFF000000 | 0x333333;
+                context.fill(x, optY + height - 1, x + width, optY + height, optBorder);
+                int optText = 0xFF000000 | (i == selectedIndex ? 0x66CCFF : (optHovered ? 0xFFFFFF : 0xCCCCCC));
+                context.drawText(MinecraftClient.getInstance().textRenderer, Text.literal(options[i]),
+                        x + 6, optY + (height / 2) - 4, optText, false);
             }
+
+            // Outer border around the whole menu.
+            int menuBorder = 0xFF000000 | 0x3399FF;
+            context.fill(x, listTop, x + width, listTop + 1, menuBorder);
+            context.fill(x, listBottom - 1, x + width, listBottom, menuBorder);
+            context.fill(x, listTop, x + 1, listBottom, menuBorder);
+            context.fill(x + width - 1, listTop, x + width, listBottom, menuBorder);
         }
 
         @Override boolean mouseClicked(double mouseX, double mouseY, int button) {

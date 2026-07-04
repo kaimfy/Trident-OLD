@@ -363,18 +363,18 @@ public class FailsafeManager {
     // ===== Helpers =====
 
     private static boolean isAnyMacroActive() {
-        if (DwarvenMiningModule.isActive())
+        if (DwarvenMining.isActive())
             return true;
         // AutoFish is an instance in TridentLoader — check via the loader
-        // MobActionModule
-        if (MobActionModule.isOn)
+        // MobAction
+        if (MobAction.isOn)
             return true;
         return false;
     }
 
     private static void stopAllMacros() {
-        DwarvenMiningModule.stop();
-        MobActionModule.stop();
+        DwarvenMining.stop();
+        MobAction.stop();
         // AutoFish stop would need to be called from TridentLoader since it's instanced
         // We fire it through the loader if available
         if (client.player != null) {

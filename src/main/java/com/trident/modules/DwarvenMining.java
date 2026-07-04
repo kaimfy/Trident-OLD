@@ -22,7 +22,7 @@ import java.util.Random;
 import java.util.Set;
 
 @SuppressWarnings("null")
-public class DwarvenMiningModule {
+public class DwarvenMining {
     private static final MinecraftClient client = MinecraftClient.getInstance();
     private static final Random rand = new Random();
 

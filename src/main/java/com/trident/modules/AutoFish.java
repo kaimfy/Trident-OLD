@@ -1,5 +1,7 @@
 package com.trident.modules;
 
+import com.trident.events.KeyHandler;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.Entity;
@@ -11,7 +13,28 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 
 @SuppressWarnings("null")
-public class AutoFishModule {
+public class AutoFish {
+    private static AutoFish instance;
+
+    /** Registers the singleton, its per-tick loop and the {@code fish} keybind toggle. */
+    public static void init() {
+        instance = new AutoFish();
+        ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+            while (KeyHandler.fish != null && KeyHandler.fish.wasPressed()) {
+                instance.toggle();
+            }
+            instance.tick();
+        });
+    }
+
+    public static AutoFish getInstance() {
+        return instance;
+    }
+
+    public static boolean isActive() {
+        return instance != null && instance.enabled;
+    }
+
     private final MinecraftClient mc = MinecraftClient.getInstance();
     private boolean enabled = false;
     private boolean waitingToRecast = false;
@@ -81,10 +104,6 @@ public class AutoFishModule {
             mc.player.swingHand(Hand.MAIN_HAND);
             mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
         }
-    }
-
-    public boolean isActive() {
-        return enabled;
     }
 
     public void stop() {

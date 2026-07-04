@@ -1,5 +1,6 @@
 package com.trident.modules;
 
+import com.trident.events.KeyHandler;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -63,6 +64,10 @@ public class AutoTunneler {
 
     public static void init() {
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+            while (KeyHandler.autotunneler != null && KeyHandler.autotunneler.wasPressed()) {
+                setToggle(!enabled);
+            }
+
             if (!enabled || client.player == null || client.world == null || client.interactionManager == null) {
                 return;
             }

@@ -1,6 +1,6 @@
 package com.trident.tracking;
 
-import com.trident.core.TridentLoader;
+import com.trident.modules.SeaLumies;
 import com.trident.network.BazaarPriceFetcher;
 
 import net.minecraft.entity.player.PlayerEntity;
@@ -24,13 +24,13 @@ public class SeaLumiesTracker {
         if (player == null) return;
 
         // Only track when macro is active
-        if (TridentLoader.macrotoggle) {
+        if (SeaLumies.macrotoggle) {
             if (sessionStartTime == -1) {
                 sessionStartTime = System.currentTimeMillis();
                 sessionCoins = 0; // reset session coins at macro start
-                previousInventoryCount = TridentLoader.countSeaLumies(player);
+                previousInventoryCount = SeaLumies.countSeaLumies(player);
             }
-            if(TridentLoader.macroActive)trackInventory(player);
+            if(SeaLumies.macroActive)trackInventory(player);
 
         } else {
             // Macro stopped: finalize session
@@ -51,7 +51,7 @@ public class SeaLumiesTracker {
        ===================================================== */
 
     private static void trackInventory(PlayerEntity player) {
-        int current = TridentLoader.countSeaLumies(player);
+        int current = SeaLumies.countSeaLumies(player);
         int gained = current - previousInventoryCount;
 
         if (gained > 0) {
@@ -91,7 +91,7 @@ public class SeaLumiesTracker {
     public static long getLifetimeMacroTimeMillis() {
         long currentSession = 0;
 
-        if (sessionStartTime != -1 && TridentLoader.macroActive) {
+        if (sessionStartTime != -1 && SeaLumies.macroActive) {
             currentSession = System.currentTimeMillis() - sessionStartTime;
         }
 

@@ -1,6 +1,6 @@
 package com.trident.events;
 
-import com.trident.core.TridentLoader;
+import com.trident.modules.SeaLumies;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
@@ -14,7 +14,7 @@ public class AutoJoinHypixel {
 
     public static void init() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (!TridentLoader.macrotoggle) return;
+            if (!SeaLumies.macrotoggle) return;
 
             // Don't try to connect if already on a server or in a menu
             if (client.getNetworkHandler() != null || client.world != null) return;

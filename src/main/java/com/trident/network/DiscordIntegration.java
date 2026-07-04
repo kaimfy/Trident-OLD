@@ -5,8 +5,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.trident.config.MacroConfig;
-import com.trident.modules.DwarvenMiningModule;
-import com.trident.modules.MobActionModule;
+import com.trident.modules.DwarvenMining;
+import com.trident.modules.MobAction;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.minecraft.client.MinecraftClient;
@@ -128,8 +128,8 @@ public class DiscordIntegration implements ClientModInitializer {
             data.addProperty("z", Math.round(mc.player.getZ()));
             data.addProperty("health", mc.player.getHealth());
         }
-        data.addProperty("dwarvenActive", DwarvenMiningModule.isActive());
-        data.addProperty("mobActionActive", MobActionModule.isOn);
+        data.addProperty("dwarvenActive", DwarvenMining.isActive());
+        data.addProperty("mobActionActive", MobAction.isOn);
 
         sendEvent("ping", data);
     }
@@ -158,8 +158,8 @@ public class DiscordIntegration implements ClientModInitializer {
             data.addProperty("health", mc.player.getHealth());
             data.addProperty("hunger", mc.player.getHungerManager().getFoodLevel());
         }
-        data.addProperty("dwarvenActive", DwarvenMiningModule.isActive());
-        data.addProperty("mobActionActive", MobActionModule.isOn);
+        data.addProperty("dwarvenActive", DwarvenMining.isActive());
+        data.addProperty("mobActionActive", MobAction.isOn);
 
         sendEvent("status", data);
     }

@@ -26,15 +26,9 @@ public class MacroConfig {
 
     // ===== Foraging Config =====
     public boolean foragingToggle = false;
-    // Tree type toggles (Fig and Mangrove OFF by default — require higher stats)
-    public boolean foragingOak = true;
-    public boolean foragingSpruce = true;
-    public boolean foragingBirch = true;
-    public boolean foragingJungle = true;
-    public boolean foragingAcacia = true;
-    public boolean foragingDarkOak = true;
-    public boolean foragingMangrove = false;
-    public boolean foragingCherry = true;
+    // Single tree type the macro will chop.
+    // One of: Oak, Spruce, Birch, Jungle, Acacia, Dark Oak, Mangrove, Cherry
+    public String foragingTreeType = "Oak";
     // Foraging Humanization
     public float foragingRotationSpeedMean = 0.12f;
     public float foragingDelayMean = 6f;
@@ -42,6 +36,20 @@ public class MacroConfig {
     public boolean foragingLookAround = true;
     public float foragingMicroPauseChance = 0.08f;
     public float foragingScanRadius = 15f;
+
+    // ===== Farming Config (Garden) =====
+    public boolean farmingToggle = false;
+    // Single crop the macro will break.
+    // One of: Wheat, Carrot, Potato, Nether Wart, Sugar Cane, Cactus, Pumpkin, Melon, Cocoa, Mushroom
+    public String farmingCropType = "Wheat";
+    // Farming humanization
+    public float farmingRotationSpeedMean = 0.12f;
+    public float farmingDelayMean = 5f;
+    public float farmingDelayStddev = 3f;
+    public boolean farmingLookAround = true;
+    public float farmingMicroPauseChance = 0.06f;
+    // Shift one lane sideways when performing a U-turn at the end of a row
+    public boolean farmingLaneShift = true;
 
     // ===== Failsafe Config =====
     public boolean failsafeEnabled = true;

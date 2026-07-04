@@ -1,6 +1,6 @@
 package com.trident.events;
 
-import com.trident.core.TridentLoader;
+import com.trident.modules.SeaLumies;
 import com.trident.pathing.RouteManager;
 
 import net.minecraft.client.MinecraftClient;
@@ -323,7 +323,7 @@ public class CameraManager {
             ClientPlayerEntity player = MinecraftClient.getInstance().player;
             if (player != null) {
                 savePosition.set(point, player.getBlockPos());
-                TridentLoader.getInstance().editblockpoint(point);
+                SeaLumies.editBlockPoint(point);
             }
         } else
             sendMessage("§3[§bTrident§3] §7Point #" + (point + 1) + " is not valid");
@@ -336,7 +336,7 @@ public class CameraManager {
             ClientPlayerEntity player = MinecraftClient.getInstance().player;
             if (player != null) {
                 savePosition.remove(point);
-                TridentLoader.getInstance().removeblockpoint(point);
+                SeaLumies.removeBlockPoint(point);
             }
         } else
             sendMessage("§3[§bTrident§3] §7Point #" + (point + 1) + " is not valid");
@@ -355,7 +355,7 @@ public class CameraManager {
             targetPositions.clear();
             savePosition.addAll(route);
             targetPositions.addAll(route);
-            TridentLoader.getInstance().setBlockList(savePosition);
+            SeaLumies.setBlockList(savePosition);
             sendMessage("§3[§bTrident§3] §7Loaded preset: " + name);
         }
     }

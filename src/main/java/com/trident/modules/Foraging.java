@@ -19,11 +19,11 @@ import java.util.*;
 /**
  * Foraging module — walks between trees and chops one log per tree (Treecapitator).
  * Only active in foraging zones (Park, Galatea).
- * Mirrors DwarvenMiningModule humanization: Gaussian delays, sinusoidal jitter,
+ * Mirrors DwarvenMining humanization: Gaussian delays, sinusoidal jitter,
  * look-around, micro-pauses, anti-pattern variance.
  */
 @SuppressWarnings("null")
-public class ForagingModule {
+public class Foraging {
     private static final MinecraftClient client = MinecraftClient.getInstance();
     private static final Random rand = new Random();
 
@@ -71,17 +71,17 @@ public class ForagingModule {
     private static final Set<BlockPos> recentlyBroken = new LinkedHashSet<>();
     private static final int MAX_RECENT = 20;
 
-    // All log block types
+    // Log block type -> display name (matches the GUI dropdown options).
     private static final Map<Block, String> LOG_BLOCKS = new LinkedHashMap<>();
     static {
-        LOG_BLOCKS.put(Blocks.OAK_LOG, "foragingOak");
-        LOG_BLOCKS.put(Blocks.SPRUCE_LOG, "foragingSpruce");
-        LOG_BLOCKS.put(Blocks.BIRCH_LOG, "foragingBirch");
-        LOG_BLOCKS.put(Blocks.JUNGLE_LOG, "foragingJungle");
-        LOG_BLOCKS.put(Blocks.ACACIA_LOG, "foragingAcacia");
-        LOG_BLOCKS.put(Blocks.DARK_OAK_LOG, "foragingDarkOak");
-        LOG_BLOCKS.put(Blocks.MANGROVE_LOG, "foragingMangrove");
-        LOG_BLOCKS.put(Blocks.CHERRY_LOG, "foragingCherry");
+        LOG_BLOCKS.put(Blocks.OAK_LOG, "Oak");
+        LOG_BLOCKS.put(Blocks.SPRUCE_LOG, "Spruce");
+        LOG_BLOCKS.put(Blocks.BIRCH_LOG, "Birch");
+        LOG_BLOCKS.put(Blocks.JUNGLE_LOG, "Jungle");
+        LOG_BLOCKS.put(Blocks.ACACIA_LOG, "Acacia");
+        LOG_BLOCKS.put(Blocks.DARK_OAK_LOG, "Dark Oak");
+        LOG_BLOCKS.put(Blocks.MANGROVE_LOG, "Mangrove");
+        LOG_BLOCKS.put(Blocks.CHERRY_LOG, "Cherry");
     }
 
     public static void init() {
@@ -250,19 +250,8 @@ public class ForagingModule {
     // ===== Tree finding =====
 
     private static boolean isTargetLog(Block block, MacroConfig config) {
-        String configField = LOG_BLOCKS.get(block);
-        if (configField == null) return false;
-        return switch (configField) {
-            case "foragingOak" -> config.foragingOak;
-            case "foragingSpruce" -> config.foragingSpruce;
-            case "foragingBirch" -> config.foragingBirch;
-            case "foragingJungle" -> config.foragingJungle;
-            case "foragingAcacia" -> config.foragingAcacia;
-            case "foragingDarkOak" -> config.foragingDarkOak;
-            case "foragingMangrove" -> config.foragingMangrove;
-            case "foragingCherry" -> config.foragingCherry;
-            default -> false;
-        };
+        String name = LOG_BLOCKS.get(block);
+        return name != null && name.equals(config.foragingTreeType);
     }
 
     /**

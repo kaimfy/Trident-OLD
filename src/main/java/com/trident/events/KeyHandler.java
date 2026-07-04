@@ -2,19 +2,14 @@ package com.trident.events;
 
 import com.trident.config.MacroConfig;
 
-import com.trident.core.TridentLoader;
 import com.trident.gui.CustomGUIScreen;
-import com.trident.gui.SeaLumiesHUD;
-import com.trident.modules.AutoTunneler;
-import com.trident.modules.MobActionModule;
-import com.trident.pathing.PathVisualizer;
-import com.trident.tracking.MacroTracker;
+import com.trident.modules.SeaLumies;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -24,7 +19,7 @@ import java.util.Map;
 @SuppressWarnings("null")
 public class KeyHandler {
         private static final KeyBinding.Category MACRO_CATEGORY = KeyBinding.Category.create(Identifier.of("macromod"));
-        public static KeyBinding savecoord, startmacro, clearall, menu, custommenu, fish, shardkill, dwarvenMacro, foragingMacro, autotunneler;
+        public static KeyBinding savecoord, startmacro, clearall, menu, custommenu, fish, shardkill, dwarvenMacro, foragingMacro, farmingMacro, autotunneler;
 
         // All registered keybinds for the GUI rebinding screen
         private static final List<KeyBinding> ALL_BINDINGS = new ArrayList<>();
@@ -75,6 +70,11 @@ public class KeyHandler {
                         InputUtil.Type.KEYSYM,
                         GLFW.GLFW_KEY_G,
                         MACRO_CATEGORY));
+                farmingMacro = reg(new KeyBinding(
+                        "key.macromod.farmingmacro",
+                        InputUtil.Type.KEYSYM,
+                        GLFW.GLFW_KEY_V,
+                        MACRO_CATEGORY));
                 autotunneler = reg(new KeyBinding(
                         "key.macromod.autotunneler",
                         InputUtil.Type.KEYSYM,
@@ -82,6 +82,9 @@ public class KeyHandler {
                         MACRO_CATEGORY));
 
                 applyOverrides();
+
+                // Drive the macro/menu keybinds from our own tick loop.
+                ClientTickEvents.END_CLIENT_TICK.register(KeyHandler::tick);
         }
 
         private static KeyBinding reg(KeyBinding binding) {
@@ -129,29 +132,18 @@ public class KeyHandler {
                         case "key.macromod.shardkill" -> "Shard Kill";
                         case "key.macromod.dwarvenmacro" -> "Dwarven Macro";
                         case "key.macromod.foragingmacro" -> "Foraging Macro";
+                        case "key.macromod.farmingmacro" -> "Farming Macro";
                         case "key.macromod.autotunneler" -> "Auto Tunneler";
                         default -> translationKey;
                 };
         }
-        public static void tick(MinecraftClient client, TridentLoader mod) {
 
-                if (shardkill.wasPressed()) {
-                        if (MobActionModule.isOn) {
-                                TridentLoader.sendPlayerMessage(client, "§3[§bTrident§3] §7Shard Kill: §cFalse");
-                                MobActionModule.isOn = false;
-                        } else {
-                                TridentLoader.sendPlayerMessage(client, "§3[§bTrident§3] §7Shard Kill: §aTrue");
-                                MobActionModule.isOn = true;
-                        }
-                }
-
-                while (autotunneler.wasPressed()) {
-                        AutoTunneler.setToggle(!AutoTunneler.isEnabled());
-                }
-
-                if (MobActionModule.isOn) {
-                        MobActionModule.onTick();
-                }
+        /**
+         * Handles the Sea Lumies macro and menu keybinds. Feature modules (fishing, combat, dwarven,
+         * foraging, farming, tunneler) register and handle their own toggles.
+         */
+        public static void tick(MinecraftClient client) {
+                if (client.player == null) return;
 
                 if (custommenu.wasPressed()) {
                         MinecraftClient.getInstance().setScreen(new CustomGUIScreen());
@@ -162,51 +154,15 @@ public class KeyHandler {
                 }
 
                 if (startmacro.wasPressed()) {
-                        if (TridentLoader.macroActive || TridentLoader.macrotoggle) {
-                                TridentLoader.macrotoggle = false;
-                                SeaLumiesHUD.setActive(false);
-                                MacroTracker.stopTracking();
-                                mod.stopMacro(client);
-                                WorldChecker.reset();
-                                TridentLoader.sendPlayerMessage(client, "§3[§bTrident§3] §7Macro stopped");
-                        } else if (!mod.blockList.isEmpty()) {
-                                SeaLumiesHUD.setActive(true);
-                                MacroTracker.startTracking(client.player);
-                                TridentLoader.macrotoggle = true;
-                                mod.relistCooldownTicks = TridentLoader.RELIST_INTERVAL_TICKS;
-                                WorldChecker.reset();
-                                TridentLoader.sendPlayerMessage(client,
-                                        "§3[§bTrident§3] §7Macro started with " + mod.blockList.size() + " points");
-                        } else {
-                                TridentLoader.sendPlayerMessage(client, "§3[§bTrident§3] §7No positions saved");
-                        }
+                        SeaLumies.toggleFromKey(client);
                 }
 
                 if (savecoord.wasPressed()) {
-                        BlockPos pos = client.player.getBlockPos();
-                        mod.blockList.add(pos);
-                        CameraManager.addsave(pos);
-
-                        TridentLoader.sendPlayerMessage(client,
-                                "§3[§bTrident§3] §7Saved position #" + mod.blockList.size() + " at: " + pos.toShortString());
-
-                        PathVisualizer.spawnPathMarkers(mod.blockList);
-                }
-
-                if (fish.wasPressed()) {
-                        mod.autoFish.toggle();
+                        SeaLumies.saveCoord(client);
                 }
 
                 if (clearall.wasPressed()) {
-                        mod.stopMacro(client);
-                        TridentLoader.macrotoggle = false;
-                        mod.blockList.clear();
-                        CameraManager.clearsave();
-                        WorldChecker.reset();
-                        PathVisualizer.spawnPathMarkers(mod.blockList);
-
-                        TridentLoader.sendPlayerMessage(client, "§3[§bTrident§3] §7Cleared all positions");
+                        SeaLumies.clearAll(client);
                 }
         }
-
 }

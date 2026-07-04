@@ -11,6 +11,7 @@ public class WorldChecker {
         TANGLEBURG,
         PARK,
         GALATEA,
+        GARDEN,
         SKYBLOCK_UNKNOWN,
         LOBBY,
         LIMBO
@@ -92,6 +93,7 @@ public class WorldChecker {
             if (line.contains("village")) return Location.TANGLEBURG;
             if (line.contains("the park") || line.contains("⏣ park")) return Location.PARK;
             if (line.contains("galatea")) return Location.GALATEA;
+            if (line.contains("garden")) return Location.GARDEN;
         }
 
         return Location.SKYBLOCK_UNKNOWN;
@@ -109,6 +111,10 @@ public class WorldChecker {
 
     public static boolean isForagingZone() {
         return currentLocation == Location.PARK || currentLocation == Location.GALATEA;
+    }
+
+    public static boolean isGardenZone() {
+        return currentLocation == Location.GARDEN;
     }
 
     public static void reset() {
