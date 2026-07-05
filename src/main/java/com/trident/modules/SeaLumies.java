@@ -248,6 +248,26 @@ public class SeaLumies {
                 }
             }
             if (macroActive) {
+                // Authoritative stall check: the CameraManager runs its own stuck
+                // detector and can stop its movement loop (active=false, keys
+                // released) while leaving macroActive=true. When that happens the
+                // leftover waypoints mean finishedRoute() is false, so without this
+                // the macro sits frozen relying on the isMoving timer below — which
+                // any small drift in the water resets, making the freeze permanent.
+                // Treat "we think we're running but the camera loop is dead" as a
+                // stall and restart immediately.
+                if (!CameraManager.isActive() && !CameraManager.finishedRoute()) {
+                    stopMacro();
+                    commandsSent = true;
+                    onIsland = false;
+                    sendServerCommand(mc, "is");
+                    WorldChecker.reset();
+                    lastWarpAttempt = worldTime;
+                    sendPlayerMessage(mc, "§3[§bTrident§3] §7Movement stalled, restarting macro...");
+                    stuckSince = 0;
+                    return;
+                }
+
                 boolean moving = CameraManager.isMoving;
 
                 if (!moving) {
