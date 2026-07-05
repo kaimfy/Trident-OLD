@@ -1,0 +1,6 @@
+{
+    "host": "trident-web",
+    "user": "root",
+    "docroot": "/var/www/tridentclient",
+    "identityFile": ""
+}

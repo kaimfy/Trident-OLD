@@ -13,12 +13,14 @@ import com.trident.modules.Foraging;
 import com.trident.modules.MobAction;
 import com.trident.modules.Nuker;
 import com.trident.modules.SeaLumies;
+import com.trident.network.AutoUpdater;
 import com.trident.network.BazaarPriceFetcher;
 import com.trident.pathing.RouteCommands;
 import com.trident.tracking.SeaLumiesTracker;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
@@ -40,6 +42,10 @@ public class TridentLoader implements ClientModInitializer {
 
     private static TridentLoader instance;
 
+    // Update check runs once per session, deferred to first world join so the
+    // player actually sees the chat notifications (mc.player is null during init).
+    private static boolean updateCheckDone = false;
+
     public TridentLoader() {
         instance = this;
     }
@@ -59,6 +65,13 @@ public class TridentLoader implements ClientModInitializer {
 
         // Advance the animated-menu frame counter every tick.
         ClientTickEvents.END_CLIENT_TICK.register(client -> updateFrame());
+
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            if (!updateCheckDone) {
+                updateCheckDone = true;
+                AutoUpdater.checkAsync();
+            }
+        });
 
         // ── Modules ──────────────────────────────────────────────────────
         SeaLumies.init();

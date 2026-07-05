@@ -4,6 +4,7 @@ import com.trident.events.WhitelistChecker;
 import com.trident.network.AutoUpdater;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.client.MinecraftClient;
 import org.lwjgl.glfw.GLFW;
@@ -20,12 +21,18 @@ import java.security.SecureRandom;
 
 public class Trident implements ModInitializer {
 	public static final String MOD_ID = "trident";
-	public static final String MOD_VERSION = "1.0.0";
+	// Single source of truth is mod_version in gradle.properties, propagated
+	// through fabric.mod.json by Loom at build time.
+	public static final String MOD_VERSION = FabricLoader.getInstance()
+			.getModContainer(MOD_ID)
+			.map(c -> c.getMetadata().getVersion().getFriendlyString())
+			.orElse("0.0.0");
 
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 	private static String themecolor = "purple";
 	public static boolean access = false;
-	WhitelistChecker checker = new WhitelistChecker("https://tridentclient.xyz/auth/api.php");
+	// Canonical API path; /auth/api.php is the legacy alias kept for pre-2.0.0 jars.
+	WhitelistChecker checker = new WhitelistChecker("https://tridentclient.xyz/api/auth.php");
 
 	@Override
 	public void onInitialize() {
@@ -36,9 +43,9 @@ public class Trident implements ModInitializer {
 		}
 		setThemecolor();
 
-		// Auto-update: clean old jar, then check for new version
-		AutoUpdater.cleanupOldJar();
-		AutoUpdater.checkAsync();
+		// Auto-update: remove leftovers from previous sessions. The update check itself
+		// runs on first world join (see TridentLoader) so its chat messages reach the player.
+		AutoUpdater.cleanupOnStartup();
 
 		MinecraftClient mcclient = MinecraftClient.getInstance();
 		mcclient.execute(() -> {
@@ -47,7 +54,7 @@ public class Trident implements ModInitializer {
 
 			long handle = mcclient.getWindow().getHandle();
 
-			GLFW.glfwSetWindowTitle(handle, "Trident 0.0.1 - " + mcclient.getSession().getUsername());
+			GLFW.glfwSetWindowTitle(handle, "Trident " + MOD_VERSION + " - " + mcclient.getSession().getUsername());
 		});
 
 	}

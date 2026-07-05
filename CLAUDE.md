@@ -4,6 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
+This repo (`mcmod`) is one of three sibling projects under the parent `Trident/` folder:
+- `../TridentWebsite/` — nginx site for tridentclient.xyz (docroot `html/tridentclient/`: auth whitelist API, auto-update manifest, release jar downloads; see its README for deploy details)
+- `../DiscordBot/` — Python Discord bot (Flask API consumed by the mod)
+
+`release.ps1` in this repo's root builds the mod, stages the release into `../TridentWebsite`, and deploys to the live server over SSH (target in gitignored `deploy.config.json`).
+
 A Fabric mod for Minecraft (client-side), built with Gradle + Fabric Loom. Java 21, targeting Minecraft `1.21.11` (see [gradle.properties](gradle.properties) for exact Minecraft/Yarn/Loader/Fabric API versions).
 
 Mod ID: `trident`. Entrypoints (see [fabric.mod.json](src/main/resources/fabric.mod.json)):
