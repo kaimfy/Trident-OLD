@@ -74,7 +74,9 @@ public class SeaLumies {
     private static boolean onIsland = false;
     public static int relistCooldownTicks = 0;
     private static boolean relistInProgress = false;
-    public static final int RELIST_INTERVAL_TICKS = 20 * 60 * 15;
+    // 900 seconds (15 min) between bazaar relists — 20 ticks/sec × 900 s.
+    private static final int RELIST_INTERVAL_SECONDS = 900;
+    public static final int RELIST_INTERVAL_TICKS = 20 * RELIST_INTERVAL_SECONDS;
     private static long stuckSince = 0;
 
     // ===== World safety / warp retry =====
