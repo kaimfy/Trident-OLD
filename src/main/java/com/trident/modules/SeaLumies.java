@@ -235,16 +235,20 @@ public class SeaLumies {
                 int pickles = CameraManager.countSeaPicklesInArea();
                 if (worldTime - lastWarpAttempt > WARP_RETRY_MS) {
                     sendPlayerMessage(mc, "§3[§bTrident§3] §7Sea Pickles Found: " + pickles);
+                    // Always advance the throttle so this message can never spam
+                    // every tick, even if neither branch below fires.
+                    lastWarpAttempt = worldTime;
                     if (pickles < CameraManager.pickleamount) {
                         stopMacro();
                         commandsSent = true;
                         onIsland = false;
                         sendServerCommand(mc, "is");
                         WorldChecker.reset(); // force re-confirmation after warp
-                        lastWarpAttempt = worldTime;
                     }
                 }
-                if (pickles > CameraManager.pickleamount) {
+                // >= so a count exactly at the threshold starts the macro instead
+                // of dead-zoning between the two comparisons.
+                if (pickles >= CameraManager.pickleamount) {
                     sendPlayerMessage(mc, "§3[§bTrident§3] §7In Murkwater, starting macro");
                     startMacro();
                 }
