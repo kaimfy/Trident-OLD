@@ -1,7 +1,12 @@
 # Builds the mod, stages the release into TridentWebsite, and — if deploy.config.json
 # exists next to this script — deploys it to the live server over SSH (e.g. via Tailscale).
 #
-# Usage: .\release.ps1 [-Changelog "what changed"] [-NoDeploy]
+# Usage: .\release.ps1 [-Bump patch|minor|major] [-Changelog "what changed"] [-NoDeploy]
+#
+#   -Bump    increments mod_version in gradle.properties before building
+#            (patch: 2.0.1 -> 2.0.2, minor: 2.0.1 -> 2.1.0, major: 2.0.1 -> 3.0.0).
+#            Without it, the current mod_version is released as-is — but never
+#            a version that is already live (see guard below).
 #
 # deploy.config.json (gitignored; copy deploy.config.example.json and fill in):
 #   host          Tailscale MagicDNS name or IP of the web server / LXC
@@ -13,15 +18,51 @@
 # the manual sync instructions instead.
 param(
     [string]$Changelog = "",
+    [ValidateSet("patch", "minor", "major")]
+    [string]$Bump = "",
     [switch]$NoDeploy
 )
 $ErrorActionPreference = 'Stop'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+# ---- Version (read, optionally bump) ----
+$gradleProps = Join-Path $PSScriptRoot "gradle.properties"
+$version = (Select-String -Path $gradleProps -Pattern '^mod_version=(.+)$').Matches[0].Groups[1].Value.Trim()
+
+if ($Bump) {
+    $parts = $version.Split('.')
+    if ($parts.Count -ne 3) { throw "mod_version '$version' is not x.y.z - bump it manually" }
+    # Intermediate vars with explicit parens: PS 5.1 misparses casts inside @(...) lists.
+    $vMajor = [int]($parts[0]); $vMinor = [int]($parts[1]); $vPatch = [int]($parts[2])
+    switch ($Bump) {
+        "major" { $newVersion = "$($vMajor + 1).0.0" }
+        "minor" { $newVersion = "$vMajor.$($vMinor + 1).0" }
+        "patch" { $newVersion = "$vMajor.$vMinor.$($vPatch + 1)" }
+    }
+    $content = [System.IO.File]::ReadAllText($gradleProps)
+    $content = $content -replace "(?m)^mod_version=.+$", "mod_version=$newVersion"
+    [System.IO.File]::WriteAllText($gradleProps, $content)
+    Write-Host "Bumped mod_version: $version -> $newVersion" -ForegroundColor Cyan
+    $version = $newVersion
+}
+
+# ---- Guard: never re-release a version that is already live ----
+# Released jars are immutable (Cloudflare caches them, and clients on that
+# version would never re-update), so a same-version release is always a mistake.
+$liveVersion = $null
+try {
+    $liveVersion = (Invoke-RestMethod -Uri "https://tridentclient.xyz/api/update.php" -TimeoutSec 15).version
+} catch {
+    Write-Warning "Could not read live manifest to check for version collision: $($_.Exception.Message)"
+}
+if ($liveVersion -eq $version) {
+    throw "v$version is already the live release. Re-run with -Bump patch (or edit mod_version in gradle.properties)."
+}
 
 # ---- Build ----
 & .\gradlew.bat build
 if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
-$version = (Select-String -Path gradle.properties -Pattern '^mod_version=(.+)$').Matches[0].Groups[1].Value.Trim()
 $jar = "build\libs\trident-$version.jar"
 if (-not (Test-Path $jar)) { throw "Expected jar not found: $jar" }
 
@@ -88,7 +129,6 @@ if ($LASTEXITCODE -ne 0) { throw "jar upload failed" }
 if ($LASTEXITCODE -ne 0) { throw "manifest upload failed" }
 
 # ---- Verify through the public URL (via Cloudflare) ----
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 Start-Sleep -Seconds 2
 try {
     $live = Invoke-RestMethod -Uri "https://tridentclient.xyz/api/update.php" -TimeoutSec 20
