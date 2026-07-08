@@ -88,6 +88,7 @@ public class TridentLoader implements ClientModInitializer {
         // ── Network / config / commands / keybinds ───────────────────────
         BazaarPriceFetcher.fetchPriceAsync();
         applyConfig();
+        RestartManager.init();
         RouteCommands.register();
         KeyHandler.register();
 

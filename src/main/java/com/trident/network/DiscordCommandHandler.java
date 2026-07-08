@@ -116,6 +116,7 @@ public class DiscordCommandHandler {
                 case "dwarvenMicroPauseChance" -> config.dwarvenMicroPauseChance = Float.parseFloat(value);
                 case "discordPingIntervalSeconds" -> config.discordPingIntervalSeconds = Integer.parseInt(value);
                 case "discordPollIntervalSeconds" -> config.discordPollIntervalSeconds = Integer.parseInt(value);
+                case "autoRestartEnabled" -> config.autoRestartEnabled = Boolean.parseBoolean(value);
                 default -> {
                     sendMessage("§c[Trident] Unknown config key: " + key);
                     return;

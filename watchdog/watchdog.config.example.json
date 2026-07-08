@@ -1,0 +1,18 @@
+{
+  "_comment": "Copy to watchdog.config.json and edit. gameDir = the Minecraft instance folder that contains config/trident_restart (for Prism: <instance>/.minecraft).",
+
+  "gameDir": "C:\\Users\\Marko\\AppData\\Roaming\\PrismLauncher\\instances\\Trident\\.minecraft",
+
+  "launchExe": "C:\\Program Files\\Prism Launcher\\prismlauncher.exe",
+  "launchArgs": ["--launch", "Trident"],
+
+  "apiBase": "https://tridentclient.xyz/api/mc",
+  "agentId": "marko-pc",
+  "agentSecret": "CHANGE-ME-must-match-PC_AGENTS-in-trident_bot.py",
+
+  "pollIntervalSeconds": 15,
+  "restartDelaySeconds": 10,
+  "launchTimeoutSeconds": 240,
+  "maxRestarts": 4,
+  "restartWindowMinutes": 30
+}

@@ -71,6 +71,11 @@ public class MacroConfig {
     // ===== Auto-Update =====
     public boolean autoUpdateEnabled = true;
 
+    // ===== Auto-Restart (external watchdog) =====
+    // When true, the watchdog script relaunches the game if it closes/crashes mid-macro,
+    // and the mod resumes the macro that was running. See watchdog/ in the repo.
+    public boolean autoRestartEnabled = false;
+
     // ===== Keybind Overrides =====
     // Maps keybind translation key (e.g. "key.macromod.startmacro") -> GLFW key code
     public Map<String, Integer> keybindOverrides = new HashMap<>();

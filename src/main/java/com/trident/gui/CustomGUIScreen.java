@@ -274,6 +274,10 @@ public class CustomGUIScreen extends Screen {
             MacroConfig.save();
             Nuker.setToggle(val);
         }, "Nuker Toggle"));
+        general.addControllo(new CustomToggleButton(0, 0, 100, 20, config.autoRestartEnabled, val -> {
+            config.autoRestartEnabled = val;
+            MacroConfig.save();
+        }, "Auto Restart (Watchdog)"));
         general.addControllo(new CustomLabel(0, 0, "Theme: " + Trident.getThemecolor()));
 
         sezioni.add(dwarven);

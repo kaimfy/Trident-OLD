@@ -42,3 +42,8 @@ replay_*.log
 # release deploy (machine-specific SSH target, see deploy.config.example.json)
 
 deploy.config.json
+
+# watchdog (machine-specific config with agent secret, see watchdog/watchdog.config.example.json)
+
+watchdog/watchdog.config.json
+watchdog/watchdog.log

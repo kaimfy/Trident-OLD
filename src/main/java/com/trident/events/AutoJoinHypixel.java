@@ -1,5 +1,6 @@
 package com.trident.events;
 
+import com.trident.core.RestartManager;
 import com.trident.modules.SeaLumies;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
@@ -14,7 +15,7 @@ public class AutoJoinHypixel {
 
     public static void init() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (!SeaLumies.macrotoggle) return;
+            if (!SeaLumies.macrotoggle && !RestartManager.wantsAutoJoin()) return;
 
             // Don't try to connect if already on a server or in a menu
             if (client.getNetworkHandler() != null || client.world != null) return;

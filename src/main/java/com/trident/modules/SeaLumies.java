@@ -410,6 +410,15 @@ public class SeaLumies {
         }
     }
 
+    /**
+     * Disables the auto-start-on-join sequence for this session. Used by RestartManager when
+     * resuming a different module after a watchdog relaunch, so this macro doesn't start too
+     * and fight it over warps.
+     */
+    public static void suppressAutoStart() {
+        started = true;
+    }
+
     /** Toggles the macro on/off from the keybind, mirroring the old KeyHandler behaviour. */
     public static void toggleFromKey(MinecraftClient mc) {
         if (macroActive || macrotoggle) {
