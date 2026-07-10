@@ -203,6 +203,10 @@ public class CustomGUIScreen extends Screen {
             MacroConfig.save();
             TridentLoader.getInstance().shouldLoop = val;
         }, "Loop Toggle"));
+        path.addControllo(new CustomToggleButton(0, 0, 100, 20, config.seaLumiesAutoStartOnJoin, val -> {
+            config.seaLumiesAutoStartOnJoin = val;
+            MacroConfig.save();
+        }, "Auto-Start on Join"));
 
         // ===== 5. Failsafe =====
         Sezione failsafe = new Sezione("Failsafe");

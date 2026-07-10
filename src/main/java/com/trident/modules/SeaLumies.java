@@ -1,6 +1,7 @@
 package com.trident.modules;
 
 import com.bazaarmod.BazaarModClient;
+import com.trident.config.MacroConfig;
 import com.trident.core.Trident;
 import com.trident.core.TridentLoader;
 import com.trident.events.CameraManager;
@@ -87,6 +88,10 @@ public class SeaLumies {
     // ===== Join manager =====
     private static int joincd = 40;
     private static boolean started = false;
+    // Whether the auto-start countdown should run this session; decided once at join time
+    // from the "Auto-Start on Join" config toggle or a watchdog resume request.
+    private static boolean autoStartArmed = false;
+    private static boolean autoStartRequested = false;
 
     // ===== Movement stuck tracking =====
     private static int tickCounter = 0;
@@ -97,6 +102,10 @@ public class SeaLumies {
         ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
             if (!joinedServer) {
                 joinedServer = true;
+                // Decide once, at join time, whether the auto-start countdown may run:
+                // either the user enabled it in the Sea Lumies menu, or the watchdog
+                // resume asked for it (RestartManager).
+                autoStartArmed = MacroConfig.get().seaLumiesAutoStartOnJoin || autoStartRequested;
                 if (Trident.access) {
                     sendPlayerMessage(mc, "§3[§bTrident§3] §7Account Verified. Have fun!");
                 } else {
@@ -135,8 +144,9 @@ public class SeaLumies {
 
         SeaLumiesTracker.tick(mc.player);
 
-        // Auto-start sequence once the account is verified and we've joined
-        if (joinedServer && !started) {
+        // Auto-start sequence once the account is verified and we've joined —
+        // only when armed (config toggle or watchdog resume), never by default.
+        if (autoStartArmed && joinedServer && !started) {
             if (joincd > 0) {
                 joincd--;
             }
@@ -146,13 +156,21 @@ public class SeaLumies {
                     SeaLumiesHUD.setActive(true);
                 }
                 case 0 -> {
-                    MacroTracker.startTracking(mc.player);
-                    macrotoggle = true;
-                    relistCooldownTicks = RELIST_INTERVAL_TICKS;
-                    WorldChecker.reset();
-                    sendPlayerMessage(mc,
-                            "§3[§bTrident§3] §7Macro started with " + blockList.size() + " points");
                     started = true;
+                    if (blockList.isEmpty()) {
+                        // Route load failed (e.g. no 'default' route saved) — starting
+                        // with zero points would just stand still and relist forever.
+                        SeaLumiesHUD.setActive(false);
+                        sendPlayerMessage(mc,
+                                "§3[§bTrident§3] §7Auto-start aborted: no route points loaded");
+                    } else {
+                        MacroTracker.startTracking(mc.player);
+                        macrotoggle = true;
+                        relistCooldownTicks = RELIST_INTERVAL_TICKS;
+                        WorldChecker.reset();
+                        sendPlayerMessage(mc,
+                                "§3[§bTrident§3] §7Macro started with " + blockList.size() + " points");
+                    }
                 }
             }
         }
@@ -417,6 +435,15 @@ public class SeaLumies {
      */
     public static void suppressAutoStart() {
         started = true;
+        autoStartArmed = false;
+    }
+
+    /**
+     * Arms the auto-start-on-join sequence for this session regardless of the config toggle.
+     * Used by RestartManager when resuming this macro after a watchdog relaunch.
+     */
+    public static void requestAutoStart() {
+        autoStartRequested = true;
     }
 
     /** Toggles the macro on/off from the keybind, mirroring the old KeyHandler behaviour. */

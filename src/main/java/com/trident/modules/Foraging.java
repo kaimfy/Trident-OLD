@@ -65,8 +65,6 @@ public class Foraging {
     private static final int[] delayHistory = new int[DELAY_HISTORY_SIZE];
     private static int delayHistoryIndex = 0;
 
-    private static int totalActiveTicks = 0;
-
     // Set of recently broken tree positions to avoid re-targeting stumps
     private static final Set<BlockPos> recentlyBroken = new LinkedHashSet<>();
     private static final int MAX_RECENT = 20;
@@ -109,7 +107,6 @@ public class Foraging {
                 return;
             }
 
-            totalActiveTicks++;
             MacroConfig config = MacroConfig.get();
 
             // ===== Micro-pause =====
@@ -482,7 +479,6 @@ public class Foraging {
         currentTarget = null;
         isChopping = false;
         chopHoldTicks = 0;
-        totalActiveTicks = 0;
         microPauseTicks = 0;
         isLookingAround = false;
         lookAroundCooldown = 200 + rand.nextInt(200);

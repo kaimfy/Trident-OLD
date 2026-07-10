@@ -63,9 +63,6 @@ public class DwarvenMining {
     private static final int[] delayHistory = new int[DELAY_HISTORY_SIZE];
     private static int delayHistoryIndex = 0;
 
-    // Tick counter for look-around timing
-    private static int totalActiveTicks = 0;
-
     private static final Set<Block> MITHRIL_BLOCKS = Set.of(
             Blocks.PRISMARINE,
             Blocks.PRISMARINE_BRICKS,
@@ -99,7 +96,6 @@ public class DwarvenMining {
                 return;
             }
 
-            totalActiveTicks++;
             MacroConfig config = MacroConfig.get();
 
             // ===== Micro-pause check =====
@@ -502,7 +498,6 @@ public class DwarvenMining {
         active = true;
         currentTarget = null;
         isMining = false;
-        totalActiveTicks = 0;
         microPauseTicks = 0;
         isLookingAround = false;
         lookAroundCooldown = 200 + rand.nextInt(200);

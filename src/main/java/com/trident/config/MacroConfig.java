@@ -12,6 +12,9 @@ public class MacroConfig {
     public float pathRotationSpeed = 0.08f;
     public float pathPickleSwapDetection = 70f;
     public boolean pathLoopActive = true;
+    // Start the Sea Lumies macro automatically (load default route + toggle on)
+    // shortly after joining a server.
+    public boolean seaLumiesAutoStartOnJoin = false;
     public boolean nukerToggle = true;
 
     // ===== Dwarven Mining Config =====

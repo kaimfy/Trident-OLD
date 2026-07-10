@@ -2,7 +2,9 @@ package com.trident.core;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.trident.config.MacroConfig;
 import com.trident.events.WorldChecker;
 import com.trident.modules.DwarvenMining;
@@ -11,6 +13,7 @@ import com.trident.modules.Foraging;
 import com.trident.modules.MobAction;
 import com.trident.modules.SeaLumies;
 
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
@@ -78,9 +81,13 @@ public final class RestartManager {
             if (previous != null) {
                 resumeModule = previous;
                 resumeDeadlineMs = System.currentTimeMillis() + RESUME_TIMEOUT_MS;
-                if (!"sealumies".equals(previous)) {
-                    // The Sea Lumies join sequence auto-starts on any server join; keep it
-                    // from fighting the module we are actually trying to resume.
+                if ("sealumies".equals(previous)) {
+                    // The join sequence only auto-starts when armed (config toggle or here);
+                    // arm it so the macro resumes even with the toggle off.
+                    SeaLumies.requestAutoStart();
+                } else {
+                    // Keep the Sea Lumies join sequence (if the user has its auto-start
+                    // toggle on) from fighting the module we are actually trying to resume.
                     SeaLumies.suppressAutoStart();
                 }
                 System.out.println("[Trident-Restart] Last session ended mid-macro (" + previous
@@ -89,6 +96,12 @@ public final class RestartManager {
         }
 
         ClientTickEvents.END_CLIENT_TICK.register(RestartManager::tick);
+
+        // A graceful quit is the user closing the game on purpose. Record "no macro
+        // running" so neither the watchdog nor the next boot mistakes it for a crash
+        // and resumes the macro. Real crashes/kills never reach this handler, so the
+        // "active" record survives exactly when resume is wanted.
+        ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> writeShutdownState());
     }
 
     /** True while a post-restart resume is pending — makes AutoJoinHypixel connect for us. */
@@ -127,6 +140,14 @@ public final class RestartManager {
         o.addProperty("updatedMs", System.currentTimeMillis());
         if (writeAtomic(STATE_FILE, gson.toJson(o)))
             lastWrittenKey = key;
+    }
+
+    private static void writeShutdownState() {
+        JsonObject o = new JsonObject();
+        o.addProperty("autoRestart", MacroConfig.get().autoRestartEnabled);
+        o.addProperty("macroActive", false);
+        o.addProperty("updatedMs", System.currentTimeMillis());
+        writeAtomic(STATE_FILE, gson.toJson(o));
     }
 
     private static String activeModule() {
@@ -174,9 +195,12 @@ public final class RestartManager {
         if (!STATE_FILE.exists())
             return null;
         try (Reader reader = Files.newBufferedReader(STATE_FILE.toPath())) {
-            JsonObject o = gson.fromJson(reader, JsonObject.class);
-            if (o != null && o.has("macroActive") && o.get("macroActive").getAsBoolean()) {
-                return o.has("module") ? o.get("module").getAsString() : "sealumies";
+            JsonElement parsed = JsonParser.parseReader(reader);
+            if (parsed.isJsonObject()) {
+                JsonObject o = parsed.getAsJsonObject();
+                if (o.has("macroActive") && o.get("macroActive").getAsBoolean()) {
+                    return o.has("module") ? o.get("module").getAsString() : "sealumies";
+                }
             }
         } catch (Exception e) {
             System.err.println("[Trident-Restart] Failed to read state.json: " + e.getMessage());

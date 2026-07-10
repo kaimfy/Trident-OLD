@@ -19,12 +19,9 @@ public class WorldChecker {
 
     // How long to wait for scoreboard to appear before declaring limbo
     private static final long SCOREBOARD_TIMEOUT_MS = 10_000;
-    // How long a scoreboard state must be stable before we trust it
-
 
     private static Location currentLocation = null;
     private static Location pendingLocation = null;
-    private static long pendingSince = -1;
     private static long noScoreboardSince = -1;
 
     // Called every tick only when macro is active
@@ -41,7 +38,6 @@ public class WorldChecker {
             // No scoreboard yet
             if (noScoreboardSince == -1) noScoreboardSince = now;
             pendingLocation = null;
-            pendingSince = -1;
             return;
         }
 
@@ -49,7 +45,6 @@ public class WorldChecker {
 
         if (detected != pendingLocation) {
             pendingLocation = detected;
-            pendingSince = now;
             return;
         }
 
@@ -120,7 +115,6 @@ public class WorldChecker {
     public static void reset() {
         currentLocation = null;
         pendingLocation = null;
-        pendingSince = -1;
         noScoreboardSince = -1;
     }
 }

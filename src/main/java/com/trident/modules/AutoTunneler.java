@@ -7,6 +7,8 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.network.ClientPlayerInteractionManager;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
@@ -68,7 +70,10 @@ public class AutoTunneler {
                 setToggle(!enabled);
             }
 
-            if (!enabled || client.player == null || client.world == null || client.interactionManager == null) {
+            ClientPlayerEntity player = client.player;
+            ClientWorld world = client.world;
+            ClientPlayerInteractionManager interactionManager = client.interactionManager;
+            if (!enabled || player == null || world == null || interactionManager == null) {
                 return;
             }
 
@@ -80,14 +85,14 @@ public class AutoTunneler {
             }
 
             // Find the absolute closest block that is either unattacked, OR needs a retry
-            BlockPos target = getClosestUnattackedBlock(client.player);
+            BlockPos target = getClosestUnattackedBlock(player, world);
 
             if (target != null) {
                 Direction direction = getMiningDirection(target);
 
                 // Send the break packet (START_DESTROY)
-                client.interactionManager.attackBlock(target, direction);
-                client.player.swingHand(Hand.MAIN_HAND);
+                interactionManager.attackBlock(target, direction);
+                player.swingHand(Hand.MAIN_HAND);
 
                 // Record the exact tick we hit it
                 recentlyAttacked.put(target, tickCounter);
@@ -95,7 +100,7 @@ public class AutoTunneler {
         });
     }
 
-    private static BlockPos getClosestUnattackedBlock(ClientPlayerEntity player) {
+    private static BlockPos getClosestUnattackedBlock(ClientPlayerEntity player, ClientWorld world) {
         Vec3d eyePos = player.getCameraPosVec(1.0f);
         Direction facing = Direction.fromHorizontalDegrees(player.getYaw());
         BlockPos origin = BlockPos.ofFloored(eyePos);
@@ -121,7 +126,7 @@ public class AutoTunneler {
                     double dist = eyePos.distanceTo(Vec3d.ofCenter(pos));
 
                     if (dist <= REACH) {
-                        BlockState state = client.world.getBlockState(pos);
+                        BlockState state = world.getBlockState(pos);
 
                         if (!state.isAir() && MINEABLE.contains(state.getBlock())) {
                             if (dist < bestDist) {
