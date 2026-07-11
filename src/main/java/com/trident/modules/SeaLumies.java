@@ -82,8 +82,15 @@ public class SeaLumies {
 
     // ===== World safety / warp retry =====
     private static long worldTime = 0;
-    private static final long WARP_RETRY_MS = 100;
+    // worldTime is a client tick counter, so 100 ticks = 5 seconds.
+    private static final long WARP_RETRY_TICKS = 100;
     private static long lastWarpAttempt = 0;
+    // Consecutive island warp sends that visibly went nowhere. Hypixel silently
+    // swallows warp commands while a previous server transfer hangs (the
+    // scoreboard stays up, so limbo detection never fires); past the cap we
+    // escalate to /lobby to break out of that state.
+    private static int islandWarpAttempts = 0;
+    private static final int MAX_ISLAND_WARP_ATTEMPTS = 3;
 
     // ===== Join manager =====
     private static int joincd = 40;
@@ -167,6 +174,7 @@ public class SeaLumies {
                         MacroTracker.startTracking(mc.player);
                         macrotoggle = true;
                         relistCooldownTicks = RELIST_INTERVAL_TICKS;
+                        islandWarpAttempts = 0;
                         WorldChecker.reset();
                         sendPlayerMessage(mc,
                                 "§3[§bTrident§3] §7Macro started with " + blockList.size() + " points");
@@ -204,7 +212,7 @@ public class SeaLumies {
         if (WorldChecker.isScoreboardTimedOut()) {
             if (macroActive)
                 stopMacro();
-            if (worldTime - lastWarpAttempt > WARP_RETRY_MS) {
+            if (worldTime - lastWarpAttempt > WARP_RETRY_TICKS) {
                 sendPlayerMessage(mc, "§3[§bTrident§3] §7Limbo detected, sending /lobby");
                 sendServerCommand(mc, "lobby");
                 lastWarpAttempt = worldTime;
@@ -230,7 +238,7 @@ public class SeaLumies {
         } else if (loc == WorldChecker.Location.LOBBY) {
             if (macroActive)
                 stopMacro();
-            if (worldTime - lastWarpAttempt > WARP_RETRY_MS + 100) {
+            if (worldTime - lastWarpAttempt > WARP_RETRY_TICKS + 100) {
                 sendPlayerMessage(mc, "§3[§bTrident§3] §7Lobby detected, sending /play skyblock");
                 sendServerCommand(mc, "play skyblock");
                 WorldChecker.reset();
@@ -241,7 +249,7 @@ public class SeaLumies {
             // for this route — warp back.
             if (macroActive)
                 stopMacro();
-            if (worldTime - lastWarpAttempt > WARP_RETRY_MS) {
+            if (worldTime - lastWarpAttempt > WARP_RETRY_TICKS) {
                 sendPlayerMessage(mc, "§3[§bTrident§3] §7Wrong zone (" + loc + "), retrying /warp murk");
                 sendServerCommand(mc, "warp murk");
                 WorldChecker.reset();
@@ -252,25 +260,28 @@ public class SeaLumies {
             commandsSent = false;
 
             if (!macroActive) {
-                int pickles = CameraManager.countSeaPicklesInArea();
-                if (worldTime - lastWarpAttempt > WARP_RETRY_MS) {
-                    sendPlayerMessage(mc, "§3[§bTrident§3] §7Sea Pickles Found: " + pickles);
-                    // Always advance the throttle so this message can never spam
-                    // every tick, even if neither branch below fires.
+                // The full-area scan is ~186k getBlockState calls, so it only runs
+                // inside the throttle window — never every tick.
+                if (worldTime - lastWarpAttempt > WARP_RETRY_TICKS) {
+                    // Advance the throttle first so no path below can fire every tick.
                     lastWarpAttempt = worldTime;
-                    if (pickles < CameraManager.pickleamount) {
-                        stopMacro();
-                        commandsSent = true;
-                        onIsland = false;
-                        sendServerCommand(mc, "is");
-                        WorldChecker.reset(); // force re-confirmation after warp
+                    if (!CameraManager.isPickleAreaLoaded()) {
+                        // Unloaded chunks read as air and undercount, which would
+                        // trigger a bogus warp-to-island — wait for the area to
+                        // stream in instead of deciding on partial data.
+                        sendPlayerMessage(mc, "§3[§bTrident§3] §7Pickle area not fully loaded yet, waiting...");
+                    } else {
+                        int pickles = CameraManager.countSeaPicklesInArea();
+                        sendPlayerMessage(mc, "§3[§bTrident§3] §7Sea Pickles Found: " + pickles);
+                        // >= so a count exactly at the threshold starts the macro instead
+                        // of dead-zoning between the two comparisons.
+                        if (pickles >= CameraManager.pickleamount) {
+                            sendPlayerMessage(mc, "§3[§bTrident§3] §7In Murkwater, starting macro");
+                            startMacro();
+                        } else {
+                            warpToIsland(mc, "§3[§bTrident§3] §7Not enough pickles, waiting on island...");
+                        }
                     }
-                }
-                // >= so a count exactly at the threshold starts the macro instead
-                // of dead-zoning between the two comparisons.
-                if (pickles >= CameraManager.pickleamount) {
-                    sendPlayerMessage(mc, "§3[§bTrident§3] §7In Murkwater, starting macro");
-                    startMacro();
                 }
             }
             if (macroActive) {
@@ -283,13 +294,7 @@ public class SeaLumies {
                 // Treat "we think we're running but the camera loop is dead" as a
                 // stall and restart immediately.
                 if (!CameraManager.isActive() && !CameraManager.finishedRoute()) {
-                    stopMacro();
-                    commandsSent = true;
-                    onIsland = false;
-                    sendServerCommand(mc, "is");
-                    WorldChecker.reset();
-                    lastWarpAttempt = worldTime;
-                    sendPlayerMessage(mc, "§3[§bTrident§3] §7Movement stalled, restarting macro...");
+                    warpToIsland(mc, "§3[§bTrident§3] §7Movement stalled, restarting macro...");
                     stuckSince = 0;
                     return;
                 }
@@ -302,13 +307,7 @@ public class SeaLumies {
                     }
                     long stuckTime = worldTime - stuckSince;
                     if (stuckTime > 160) {
-                        stopMacro();
-                        commandsSent = true;
-                        onIsland = false;
-                        sendServerCommand(mc, "is");
-                        WorldChecker.reset();
-                        lastWarpAttempt = worldTime;
-                        sendPlayerMessage(mc, "§3[§bTrident§3] §7Path stalled, restarting macro...");
+                        warpToIsland(mc, "§3[§bTrident§3] §7Path stalled, restarting macro...");
                         stuckSince = 0;
                         return;
                     }
@@ -319,20 +318,11 @@ public class SeaLumies {
 
             // Check if path finished
             if (macroActive && CameraManager.finishedRoute()) {
-                stopMacro();
-                commandsSent = true;
-                onIsland = false;
-                sendServerCommand(mc, "is");
-                WorldChecker.reset(); // force re-confirmation after warp
-                lastWarpAttempt = worldTime;
-                sendPlayerMessage(mc, "§3[§bTrident§3] §7Path complete, warping to island");
+                warpToIsland(mc, "§3[§bTrident§3] §7Path complete, warping to island");
             }
-
-            if (!macroActive && commandsSent && !onIsland && worldTime - lastWarpAttempt > WARP_RETRY_MS) {
-                sendPlayerMessage(mc, "§3[§bTrident§3] §7Island warp failed, retrying...");
-                sendServerCommand(mc, "is");
-                lastWarpAttempt = worldTime;
-            }
+            // Note: a failed island warp lands back in the scan branch above
+            // (loc stays MURKWATER, macroActive false), which retries and
+            // escalates — no separate retry handler needed here.
         } else if (loc == WorldChecker.Location.YOUR_ISLAND) {
             if (macroActive)
                 stopMacro();
@@ -341,6 +331,7 @@ public class SeaLumies {
             if (!onIsland) {
                 onIsland = true;
                 islandArrivalTime = worldTime;
+                islandWarpAttempts = 0; // warp confirmed — reset the stuck-warp escalation
                 sendPlayerMessage(mc, "§3[§bTrident§3] §7On island.");
             }
 
@@ -380,7 +371,7 @@ public class SeaLumies {
             boolean relistDone = !bazaarLoaded
                     || (!relistInProgress && (relistCooldownTicks > 0 || timeOnIsland >= 100));
             if (DoneDropping && relistDone) {
-                if (worldTime - lastWarpAttempt > WARP_RETRY_MS) {
+                if (worldTime - lastWarpAttempt > WARP_RETRY_TICKS) {
                     onIsland = false;
                     commandsSent = false;
                     DoneDropping = true;
@@ -396,6 +387,32 @@ public class SeaLumies {
     }
 
     // ===== Macro lifecycle =====
+
+    /**
+     * Stops the macro and sends the player to their island, escalating to /lobby
+     * after {@link #MAX_ISLAND_WARP_ATTEMPTS} consecutive sends that visibly went
+     * nowhere. Hypixel silently drops warp commands while a previous server
+     * transfer is stuck pending — the scoreboard stays up so limbo detection never
+     * fires, and without escalation the macro would re-send /is forever. The
+     * attempt counter resets on confirmed island arrival and on macro start.
+     */
+    private static void warpToIsland(MinecraftClient mc, String message) {
+        stopMacro();
+        commandsSent = true;
+        onIsland = false;
+        if (message != null)
+            sendPlayerMessage(mc, message);
+        islandWarpAttempts++;
+        if (islandWarpAttempts > MAX_ISLAND_WARP_ATTEMPTS) {
+            islandWarpAttempts = 0;
+            sendPlayerMessage(mc, "§3[§bTrident§3] §7Island warp not going through, escaping via /lobby");
+            sendServerCommand(mc, "lobby");
+        } else {
+            sendServerCommand(mc, "is");
+        }
+        WorldChecker.reset(); // force re-confirmation after warp
+        lastWarpAttempt = worldTime;
+    }
 
     private static void startMacro() {
         macroActive = true;
@@ -462,6 +479,7 @@ public class SeaLumies {
             MacroTracker.startTracking(mc.player);
             macrotoggle = true;
             relistCooldownTicks = RELIST_INTERVAL_TICKS;
+            islandWarpAttempts = 0;
             WorldChecker.reset();
             sendPlayerMessage(mc, "§3[§bTrident§3] §7Macro started with " + blockList.size() + " points");
         } else {

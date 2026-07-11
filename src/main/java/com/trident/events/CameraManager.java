@@ -12,6 +12,7 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.block.Blocks;
+import net.minecraft.world.chunk.ChunkStatus;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -225,32 +226,48 @@ public class CameraManager {
         }
     }
 
+    // Murkwater sea-pickle field bounds (world coordinates), shared by the
+    // count and the chunk-load guard below.
+    private static final int PICKLE_MIN_X = -680, PICKLE_MAX_X = -610;
+    private static final int PICKLE_MIN_Y = 54, PICKLE_MAX_Y = 89;
+    private static final int PICKLE_MIN_Z = -31, PICKLE_MAX_Z = 41;
+
     public static int countSeaPicklesInArea() {
         if (client.world == null)
             return 0;
 
         int count = 0;
-        int minX = -680, maxX = -610;
-        int minY = 54, maxY = 89;
-        int minZ = -31, maxZ = 41;
-
-        for (int x = minX; x <= maxX; x++) {
-            for (int y = minY; y <= maxY; y++) {
-                for (int z = minZ; z <= maxZ; z++) {
-                    BlockPos pos = new BlockPos(x, y, z);
-                    if (client.world != null) {
-                        var state = client.world.getBlockState(pos);
-                        if (state.getBlock() == Blocks.SEA_PICKLE &&
-                                state.contains(Properties.PICKLES) &&
-                                state.get(Properties.PICKLES) >= 3) {
-                            count++;
-                        }
+        for (int x = PICKLE_MIN_X; x <= PICKLE_MAX_X; x++) {
+            for (int y = PICKLE_MIN_Y; y <= PICKLE_MAX_Y; y++) {
+                for (int z = PICKLE_MIN_Z; z <= PICKLE_MAX_Z; z++) {
+                    var state = client.world.getBlockState(new BlockPos(x, y, z));
+                    if (state.getBlock() == Blocks.SEA_PICKLE &&
+                            state.contains(Properties.PICKLES) &&
+                            state.get(Properties.PICKLES) >= 3) {
+                        count++;
                     }
                 }
             }
         }
 
         return count;
+    }
+
+    /**
+     * True once every chunk overlapping the pickle scan box has been received
+     * from the server. Unloaded chunks read as air, so counting before the area
+     * streams in undercounts and can wrongly send the macro off to the island.
+     */
+    public static boolean isPickleAreaLoaded() {
+        if (client.world == null)
+            return false;
+        for (int cx = PICKLE_MIN_X >> 4; cx <= PICKLE_MAX_X >> 4; cx++) {
+            for (int cz = PICKLE_MIN_Z >> 4; cz <= PICKLE_MAX_Z >> 4; cz++) {
+                if (client.world.getChunk(cx, cz, ChunkStatus.FULL, false) == null)
+                    return false;
+            }
+        }
+        return true;
     }
 
     private static void nextTarget() {
