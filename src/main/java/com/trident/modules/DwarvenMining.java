@@ -63,6 +63,11 @@ public class DwarvenMining {
     private static final int[] delayHistory = new int[DELAY_HISTORY_SIZE];
     private static int delayHistoryIndex = 0;
 
+    // Per-frame rotation timing (smooth camera, framerate-independent)
+    private static long lastFrameNanos = 0;
+    // Last broken block — the next pick prefers its neighbors (vein sweeping)
+    private static BlockPos lastBrokenPos = null;
+
     private static final Set<Block> MITHRIL_BLOCKS = Set.of(
             Blocks.PRISMARINE,
             Blocks.PRISMARINE_BRICKS,
@@ -79,6 +84,11 @@ public class DwarvenMining {
             Blocks.END_STONE);
 
     public static void init() {
+        // Rotation runs per render frame (not per tick): applying yaw/pitch at
+        // 20Hz makes the camera visibly step, per-frame lerp looks like a hand.
+        net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents.AFTER_ENTITIES
+                .register(context -> onRenderFrame());
+
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             if (mc.player == null || mc.world == null)
                 return;
@@ -143,13 +153,15 @@ public class DwarvenMining {
                     mc.options.jumpKey.setPressed(false);
                     mc.options.leftKey.setPressed(false);
                     mc.options.rightKey.setPressed(false);
+                    lastBrokenPos = currentTarget;
                     currentTarget = null;
                     isMining = false;
                     strafeLeft = false;
                     strafeRight = false;
 
-                    // Gaussian delay with anti-pattern
-                    int delay = gaussianDelay(config.dwarvenDelayMean, config.dwarvenDelayStddev, 3, 25);
+                    // Gaussian delay with anti-pattern — kept short: adjacent
+                    // blocks chain quickly, long stares read as "thinking"
+                    int delay = gaussianDelay(config.dwarvenDelayMean, config.dwarvenDelayStddev, 1, 12);
                     delay = applyAntiPattern(delay);
                     delayTicks = delay;
                     return;
@@ -177,9 +189,6 @@ public class DwarvenMining {
             }
 
             updateTargetAngles();
-
-            // Look at target smoothly (with jitter)
-            updateViewSmooth(1.0f);
 
             double distance = mc.player.getEyePos().distanceTo(Vec3d.ofCenter(currentTarget));
 
@@ -273,8 +282,9 @@ public class DwarvenMining {
             float variance = (sumSq / DELAY_HISTORY_SIZE) - (mean * mean);
 
             if (variance < 2.0f) {
-                // Too uniform — inject a big deviation
-                int extraDelay = 8 + rand.nextInt(15);
+                // Too uniform — inject a deviation (kept moderate, a long
+                // freeze reads as lag, not as a human)
+                int extraDelay = 5 + rand.nextInt(8);
                 delay += extraDelay;
             }
         }
@@ -296,8 +306,9 @@ public class DwarvenMining {
     private static void regenerateJitter() {
         jitterFreqYaw = 0.05f + rand.nextFloat() * 0.10f;
         jitterFreqPitch = 0.04f + rand.nextFloat() * 0.08f;
-        jitterAmpYaw = 0.2f + rand.nextFloat() * 0.6f;
-        jitterAmpPitch = 0.15f + rand.nextFloat() * 0.5f;
+        // Subtle hand sway — anything bigger reads as shaking
+        jitterAmpYaw = 0.08f + rand.nextFloat() * 0.25f;
+        jitterAmpPitch = 0.06f + rand.nextFloat() * 0.20f;
         jitterPhaseYaw = rand.nextFloat() * (float) (2 * Math.PI);
         jitterPhasePitch = rand.nextFloat() * (float) (2 * Math.PI);
     }
@@ -345,22 +356,20 @@ public class DwarvenMining {
         if (candidates.isEmpty())
             return null;
 
-        // Sort candidates
-        candidates.sort((p1, p2) -> {
-            boolean isTitanium1 = TITANIUM_BLOCKS.contains(client.world.getBlockState(p1).getBlock());
-            boolean isTitanium2 = TITANIUM_BLOCKS.contains(client.world.getBlockState(p2).getBlock());
+        // Rank by convenience, not raw distance: turning the head costs like
+        // walking does, and the neighbor of the block we just broke is the
+        // natural next pick — a human sweeps a face/vein, they don't pivot to
+        // whatever is nearest behind them.
+        double yawRad = Math.toRadians(player.getYaw());
+        double pitchRad = Math.toRadians(player.getPitch());
+        double xzLen = Math.cos(pitchRad);
+        Vec3d look = new Vec3d(-Math.sin(yawRad) * xzLen, -Math.sin(pitchRad), Math.cos(yawRad) * xzLen);
 
-            if (config.dwarvenPrioritizeTitanium && isTitanium1 != isTitanium2) {
-                return isTitanium1 ? -1 : 1;
-            }
+        candidates.sort((p1, p2) -> Double.compare(
+                targetScore(p1, eyePos, look, config),
+                targetScore(p2, eyePos, look, config)));
 
-            // Otherwise sort by distance
-            double d1 = eyePos.distanceTo(Vec3d.ofCenter(p1));
-            double d2 = eyePos.distanceTo(Vec3d.ofCenter(p2));
-            return Double.compare(d1, d2);
-        });
-
-        // Imperfect selection: 15% chance to skip the nearest and pick 2nd or 3rd
+        // Imperfect selection: 15% chance to skip the best and pick 2nd or 3rd
         if (candidates.size() >= 3 && rand.nextFloat() < 0.15f) {
             return candidates.get(1 + rand.nextInt(Math.min(2, candidates.size() - 1)));
         }
@@ -369,6 +378,39 @@ public class DwarvenMining {
         }
 
         return candidates.get(0);
+    }
+
+    /** Lower is better: distance + turn cost - vein continuity - yield - titanium priority. */
+    private static double targetScore(BlockPos pos, Vec3d eyePos, Vec3d look, MacroConfig config) {
+        Vec3d to = Vec3d.ofCenter(pos).subtract(eyePos);
+        double dist = to.length();
+        double angleDeg = Math.toDegrees(Math.acos(
+                MathHelper.clamp(look.dotProduct(to.normalize()), -1.0, 1.0)));
+        double score = dist + angleDeg / 25.0;          // a 90-degree pivot "costs" ~3.6 blocks
+
+        if (lastBrokenPos != null
+                && pos.getSquaredDistance(lastBrokenPos) <= 6.25) {
+            score -= 4.0;                                // keep sweeping the same face/vein
+        }
+        score -= yieldBonus(client.world.getBlockState(pos).getBlock());
+        if (config.dwarvenPrioritizeTitanium
+                && TITANIUM_BLOCKS.contains(client.world.getBlockState(pos).getBlock())) {
+            score -= 1000.0;                             // titanium always outranks mithril
+        }
+        return score;
+    }
+
+    /**
+     * Mithril blocks aren't equal — value per block strength decides:
+     *   Light Blue Wool: 1500 strength, 5 Mithril + 5 Powder (best yield/swing)
+     *   Gray Wool:        800 strength, 2 Mithril + 3 Powder
+     *   Cyan Terracotta:  500 strength, 1 Mithril + 1 Powder (weakest yield)
+     */
+    private static double yieldBonus(Block block) {
+        if (block == Blocks.LIGHT_BLUE_WOOL) return 3.0;
+        if (block == Blocks.GRAY_WOOL) return 1.5;
+        if (block == Blocks.CYAN_TERRACOTTA) return 0.5;
+        return 0.0;
     }
 
     // ===== Rotation =====
@@ -392,28 +434,41 @@ public class DwarvenMining {
         targetPitch = MathHelper.wrapDegrees(targetPitch);
     }
 
-    private static void updateViewSmooth(float delta) {
-        if (!active || client.player == null || currentTarget == null)
+    /**
+     * Runs once per render frame. The lerp factor is scaled by real frame time
+     * (in tick units), so the turn speed is identical at 30 or 300 fps —
+     * {@code currentRotateSpeed} keeps meaning "fraction per tick".
+     */
+    private static void onRenderFrame() {
+        if (!active || client.player == null || currentTarget == null || isLookingAround
+                || microPauseTicks > 0 || delayTicks > 0) {
+            lastFrameNanos = 0;
             return;
+        }
         ClientPlayerEntity player = client.player;
 
-        // Variable speed with slight randomness per frame
-        float speed = currentRotateSpeed * (0.85f + rand.nextFloat() * 0.30f);
+        long now = System.nanoTime();
+        float dtTicks = lastFrameNanos == 0 ? 0.05f : (now - lastFrameNanos) / 50_000_000f;
+        lastFrameNanos = now;
+        dtTicks = MathHelper.clamp(dtTicks, 0f, 1f);
 
-        float currentYaw = MathHelper.lerpAngleDegrees(speed * delta, player.getYaw(), targetYaw);
-        float currentPitch = MathHelper.lerpAngleDegrees(speed * delta, player.getPitch(), targetPitch);
+        updateTargetAngles();
 
-        // Sinusoidal jitter (smooth, not random per-tick noise)
+        float t = 1f - (float) Math.pow(1f - currentRotateSpeed, dtTicks);
+        float currentYaw = MathHelper.lerpAngleDegrees(t, player.getYaw(), targetYaw);
+        float currentPitch = MathHelper.lerpAngleDegrees(t, player.getPitch(), targetPitch);
+
+        // Sinusoidal jitter, frame-time scaled so its amplitude is fps-independent
         if (isMining) {
-            jitterPhaseYaw += jitterFreqYaw;
-            jitterPhasePitch += jitterFreqPitch;
-            currentYaw += (float) Math.sin(jitterPhaseYaw) * jitterAmpYaw;
-            currentPitch += (float) Math.sin(jitterPhasePitch) * jitterAmpPitch;
+            jitterPhaseYaw += jitterFreqYaw * dtTicks;
+            jitterPhasePitch += jitterFreqPitch * dtTicks;
+            currentYaw += (float) Math.sin(jitterPhaseYaw) * jitterAmpYaw * dtTicks;
+            currentPitch += (float) Math.sin(jitterPhasePitch) * jitterAmpPitch * dtTicks;
         }
 
         player.setYaw(currentYaw);
-        player.setPitch(currentPitch);
-        FailsafeManager.updateExpectedRotation(currentYaw, currentPitch);
+        player.setPitch(MathHelper.clamp(currentPitch, -90f, 90f));
+        FailsafeManager.updateExpectedRotation(player.getYaw(), player.getPitch());
     }
 
     // ===== Look-Around Behavior =====
@@ -497,6 +552,8 @@ public class DwarvenMining {
             return;
         active = true;
         currentTarget = null;
+        lastBrokenPos = null;
+        lastFrameNanos = 0;
         isMining = false;
         microPauseTicks = 0;
         isLookingAround = false;

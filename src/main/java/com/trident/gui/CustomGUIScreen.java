@@ -104,11 +104,15 @@ public class CustomGUIScreen extends Screen {
             else Foraging.stop();
         }, "Foraging Toggle"));
         foraging.addControllo(new CustomDropdown(0, 0, 120, 20,
-                new String[]{"Oak", "Spruce", "Birch", "Jungle", "Acacia", "Dark Oak", "Mangrove", "Cherry"},
+                new String[]{"Oak", "Spruce", "Birch", "Jungle", "Acacia", "Dark Oak", "Mangrove", "Fig"},
                 config.foragingTreeType, val -> {
             config.foragingTreeType = val;
             MacroConfig.save();
         }, "Tree Type"));
+        foraging.addControllo(new CustomToggleButton(0, 0, 100, 20, config.foragingAxeThrow, val -> {
+            config.foragingAxeThrow = val;
+            MacroConfig.save();
+        }, "Axe Throw"));
         foraging.addControllo(new CustomLabel(0, 0, "--- Humanization ---"));
         foraging.addControllo(new CustomSlider(0, 0, 150, 12, 0.06f, 0.25f, config.foragingRotationSpeedMean, val -> {
             config.foragingRotationSpeedMean = val;

@@ -30,8 +30,11 @@ public class MacroConfig {
     // ===== Foraging Config =====
     public boolean foragingToggle = false;
     // Single tree type the macro will chop.
-    // One of: Oak, Spruce, Birch, Jungle, Acacia, Dark Oak, Mangrove, Cherry
+    // One of: Oak, Spruce, Birch, Jungle, Acacia, Dark Oak, Mangrove, Fig
     public String foragingTreeType = "Oak";
+    // Throw the axe (right-click, ~2s cooldown) at logs 5-8 blocks away
+    // instead of walking up to them.
+    public boolean foragingAxeThrow = false;
     // Foraging Humanization
     public float foragingRotationSpeedMean = 0.12f;
     public float foragingDelayMean = 6f;

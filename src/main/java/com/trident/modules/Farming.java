@@ -94,6 +94,8 @@ public class Farming {
                 return;
             }
 
+            WorldChecker.tick(mc);
+
             // Zone gate — idle (don't stop) until the player reaches the Garden.
             if (!WorldChecker.isGardenZone()) {
                 releaseKeys(mc);

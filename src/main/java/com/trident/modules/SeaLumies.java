@@ -236,7 +236,9 @@ public class SeaLumies {
                 WorldChecker.reset();
                 lastWarpAttempt = worldTime;
             }
-        } else if (loc == WorldChecker.Location.TANGLEBURG || loc == WorldChecker.Location.SKYBLOCK_UNKNOWN) {
+        } else if (loc != WorldChecker.Location.MURKWATER && loc != WorldChecker.Location.YOUR_ISLAND) {
+            // Any other skyblock zone (Tangleburg, Galatea, Park, unknown, ...) is wrong
+            // for this route — warp back.
             if (macroActive)
                 stopMacro();
             if (worldTime - lastWarpAttempt > WARP_RETRY_MS) {
